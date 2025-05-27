@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Installer LXC Legacy Script Environment untuk Ubuntu 24.04 (Host)
-# Container: Ubuntu 20.04 (Focal Fossa) - Versi Diperbaiki untuk Noble Numbat
+# Container: Ubuntu 20.04 (Focal Fossa) - Versi Final
 
 # Fungsi untuk menampilkan pesan status
 function status_msg {
@@ -25,13 +25,13 @@ status_msg "Memulai instalasi LXC Legacy Script Environment (Ubuntu 20.04)..."
 status_msg "Memperbarui paket sistem..."
 apt update && apt upgrade -y
 
-# Install LXC dan dependensi (paket lxd diganti dengan lxd-installer)
+# Install LXC dan dependensi
 status_msg "Menginstall LXC dan dependensi yang diperlukan..."
 apt install -y lxc lxc-templates bridge-utils uidmap snapd
 
-# Install LXD melalui snap (cara baru di Ubuntu 24.04)
+# Install LXD melalui snap
 status_msg "Menginstall LXD melalui snap..."
-snap install lxd
+snap install lxd --channel=latest/stable
 snap refresh lxd
 
 # Inisialisasi LXD
@@ -42,7 +42,11 @@ lxd init --auto
 status_msg "Mengkonfigurasi LXC..."
 echo "root:100000:65536" | tee -a /etc/subuid /etc/subgid
 
-# Buat container legacy-script-env dengan Ubuntu 20.04
+# Tambahkan remote Ubuntu yang kompatibel
+status_msg "Menambahkan remote image yang kompatibel..."
+lxc remote add ubuntu-old https://cloud-images.ubuntu.com/releases/ --protocol simplestreams
+
+# Buat container legacy-script-env
 status_msg "Membuat container legacy-script-env dengan Ubuntu 20.04..."
 
 # Hapus container jika sudah ada
@@ -52,18 +56,21 @@ if lxc list | grep -q "legacy-script-env"; then
     lxc delete legacy-script-env
 fi
 
-# Buat container baru
-status_msg "Mendownload image Ubuntu 20.04..."
-lxc launch images:ubuntu/20.04 legacy-script-env
+# Buat container baru dari image yang valid
+status_msg "Mendownload image Ubuntu 20.04 yang valid..."
+lxc launch ubuntu-old:20.04 legacy-script-env
 
 # Tunggu container mulai
 status_msg "Menunggu container mulai..."
-sleep 15  # Waktu tunggu lebih lama
+while ! lxc list | grep -q "legacy-script-env.*RUNNING"; do
+    echo "Menunggu container mulai..."
+    sleep 5
+done
 
 # Setup dasar di dalam container
 status_msg "Menyiapkan environment di dalam container..."
 lxc exec legacy-script-env -- bash -c "apt update && apt upgrade -y"
-lxc exec legacy-script-env -- bash -c "apt install -y sudo curl wget nano gnupg2"
+lxc exec legacy-script-env -- bash -c "apt install -y sudo curl wget nano gnupg2 software-properties-common"
 
 # Buat user dengan sudo privileges di dalam container
 status_msg "Membuat user di dalam container..."
@@ -81,12 +88,15 @@ source ~/.bashrc
 
 # Informasi selesai
 status_msg "Instalasi selesai!"
-echo -e "\nAnda sekarang dapat menggunakan perintah berikut:"
+echo -e "\n\033[1;33mPERHATIAN:\033[0m Jika Anda menggunakan ZSH, tambahkan alias ke ~/.zshrc juga\n"
+echo -e "Anda sekarang dapat menggunakan perintah berikut:"
 echo -e "  - \033[1;36mvirtual\033[0m   : Untuk masuk ke dalam container sebagai root"
 echo -e "  - \033[1;36mcontainer\033[0m : Untuk masuk ke dalam container sebagai user"
 echo -e "  - \033[1;36mroot\033[0m      : Untuk keluar dari container\n"
 echo -e "Perintah tambahan:"
-echo -e "  - \033[1;36mlxc list\033[0m  : Untuk melihat daftar container\n"
+echo -e "  - \033[1;36mlxc list\033[0m  : Untuk melihat daftar container"
+echo -e "  - \033[1;36mlxc stop legacy-script-env\033[0m : Untuk menghentikan container"
+echo -e "  - \033[1;36mlxc start legacy-script-env\033[0m : Untuk memulai container\n"
 
 # Verifikasi container
 status_msg "Verifikasi container..."
