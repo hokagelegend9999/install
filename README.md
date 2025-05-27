@@ -14,7 +14,7 @@ rm virtual
 3. IP PORT FORWARDING
 
 ```
-apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh && chmod +x port.sh && ./port.sh
+apt install -y && apt update -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh && chmod +x port.sh && ./port.sh
 ```
 
 ## 🚀 ALPHA SCRIPT
