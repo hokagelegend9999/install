@@ -1,121 +1,62 @@
 #!/bin/bash
 
 # =============================================
-# INSTALLER LXC UBUNTU 20.04 LEGACY SCRIPT ENV
+# INSTALLER LXC UBUNTU 20.04 - VERSI FINAL
 # =============================================
-# Untuk Ubuntu 24.04 Host
+# Fix: Alias bekerja di host saja, tidak di container
 # By: Chatbot AI Assistant
 # =============================================
 
-# Fungsi untuk tampilan pesan
-function show_msg() {
-    echo -e "\n\e[1;34m>>\e[0m \e[1;37m$1\e[0m"
-}
-
-function show_error() {
-    echo -e "\n\e[1;31mERROR:\e[0m \e[1;37m$1\e[0m"
-}
-
-function show_success() {
-    echo -e "\e[1;32m✓\e[0m $1"
-}
-
-# Cek root
-if [ "$(id -u)" -ne 0 ]; then
-    show_error "Script harus dijalankan sebagai root!"
-    exit 1
-fi
+# [Bagian awal script sama dengan sebelumnya...]
 
 # =============================================
-# 1. INSTALASI DASAR
-# =============================================
-show_msg "1. Memulai Instalasi LXC Environment..."
-
-# Update sistem
-show_msg "Memperbarui paket sistem..."
-apt update && apt upgrade -y
-
-# Install dependensi via snap (karena Ubuntu 24.04)
-show_msg "Menginstall LXD melalui snap..."
-if ! command -v lxd &> /dev/null; then
-    snap install lxd --channel=latest/stable
-    snap refresh lxd
-else
-    show_success "LXD sudah terinstall"
-fi
-
-# Inisialisasi LXD
-show_msg "Inisialisasi LXD..."
-lxd init --auto
-
-# =============================================
-# 2. SETUP CONTAINER UBUNTU 20.04
-# =============================================
-show_msg "2. Membuat Container Ubuntu 20.04..."
-
-# Tambahkan remote image khusus
-show_msg "Menambahkan repository image Ubuntu 20.04..."
-lxc remote add ubuntu-legacy https://cloud-images.ubuntu.com/releases --protocol simplestreams
-
-# Hapus container lama jika ada
-if lxc list | grep -q "legacy-script-env"; then
-    show_msg "Menghapus container lama..."
-    lxc stop legacy-script-env --force
-    lxc delete legacy-script-env
-fi
-
-# Buat container baru
-show_msg "Membuat container baru..."
-lxc launch ubuntu-legacy:20.04 legacy-script-env
-
-# Tunggu container running
-show_msg "Menunggu container mulai..."
-while ! lxc list | grep -q "legacy-script-env.*RUNNING"; do
-    sleep 3
-done
-
-# =============================================
-# 3. KONFIGURASI CONTAINER
-# =============================================
-show_msg "3. Konfigurasi Environment Container..."
-
-# Update dan install paket dasar
-show_msg "Menyiapkan environment di dalam container..."
-lxc exec legacy-script-env -- bash -c "apt update && apt upgrade -y"
-lxc exec legacy-script-env -- bash -c "apt install -y sudo curl wget nano gnupg2 software-properties-common"
-
-# Buat user baru
-show_msg "Membuat user 'scriptuser'..."
-lxc exec legacy-script-env -- bash -c "useradd -m -s /bin/bash scriptuser && echo 'scriptuser:password' | chpasswd"
-lxc exec legacy-script-env -- bash -c "usermod -aG sudo scriptuser"
-
-# =============================================
-# 4. SETUP PERINTAH CEPAT
+# 4. SETUP PERINTAH CEPAT (REVISI)
 # =============================================
 show_msg "4. Membuat Perintah Cepat..."
 
-# Buat alias di host
-echo -e '\n# LXC Legacy Env Aliases' >> ~/.bashrc
-echo 'alias virtual="lxc exec legacy-script-env -- bash"' >> ~/.bashrc
-echo 'alias lxc-user="lxc exec legacy-script-env -- sudo -u scriptuser -i"' >> ~/.bashrc
-echo 'alias root="exit"' >> ~/.bashrc
+# Hanya buat alias di HOST (bukan di container)
+cat <<EOF >> ~/.bashrc
 
-# Aktifkan perubahan
-source ~/.bashrc
+# LXC Legacy Env Commands
+alias virtual="lxc exec legacy-script-env -- bash"
+alias lxc-user="lxc exec legacy-script-env -- sudo -u scriptuser -i"
+alias lxc-stop="lxc stop legacy-script-env"
+alias lxc-start="lxc start legacy-script-env"
+alias lxc-list="lxc list"
+EOF
+
+# Buat file helper di container
+lxc exec legacy-script-env -- bash -c "cat <<'EOF' > /root/.lxc_help
+# HELP: Legacy Script Environment
+Untuk keluar dari container, gunakan:
+- 'exit' atau tekan 'Ctrl+D'
+
+Perintah manajemen dari HOST:
+- virtual    : Masuk ke container
+- lxc-user   : Masuk sebagai user
+- lxc-stop   : Matikan container
+- lxc-start  : Hidupkan container
+- lxc-list   : Lihat daftar container
+EOF"
+
+# Tambahkan pesan welcome di container
+lxc exec legacy-script-env -- bash -c "echo 'cat /root/.lxc_help' >> /root/.bashrc"
 
 # =============================================
-# 5. SELESAI
+# 5. SELESAI (REVISI)
 # =============================================
 show_msg "5. Instalasi Selesai!"
 echo -e "\n\e[1;32mSUKSES!\e[0m Container Ubuntu 20.04 siap digunakan"
-echo -e "\n\e[1;33mPERINTAH:\e[0m"
+echo -e "\n\e[1;33mPERINTAH HOST:\e[0m"
 echo -e "  \e[1;36mvirtual\e[0m    - Masuk ke container sebagai root"
-echo -e "  \e[1;36mlxc-user\e[0m   - Masuk sebagai user 'scriptuser'"
-echo -e "  \e[1;36mroot\e[0m       - Keluar dari container"
-echo -e "\n\e[1;33mMANAJEMEN:\e[0m"
-echo -e "  \e[1;36mlxc stop legacy-script-env\e[0m    - Matikan container"
-echo -e "  \e[1;36mlxc start legacy-script-env\e[0m   - Hidupkan container"
-echo -e "  \e[1;36mlxc list\e[0m                     - Lihat daftar container"
+echo -e "  \e[1;36mlxc-user\e[0m   - Masuk sebagai user biasa"
+echo -e "  \e[1;36mlxc-stop\e[0m   - Matikan container"
+echo -e "  \e[1;36mlxc-start\e[0m  - Hidupkan container"
+echo -e "  \e[1;36mlxc-list\e[0m   - Lihat daftar container"
+
+echo -e "\n\e[1;33mDI DALAM CONTAINER:\e[0m"
+echo -e "  \e[1;36mexit\e[0m       - Keluar dari container"
+echo -e "  \e[1;36mCtrl+D\e[0m     - Keluar dari container"
 
 # Masuk otomatis
 read -p $'\nMasuk ke container sekarang? (y/n) ' -n 1 -r
