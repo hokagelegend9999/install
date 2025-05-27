@@ -42,12 +42,11 @@ lxd init --auto
 status_msg "Mengkonfigurasi LXC..."
 echo "root:100000:65536" | tee -a /etc/subuid /etc/subgid
 
-# Tambahkan remote Ubuntu yang kompatibel
-status_msg "Menambahkan remote image yang kompatibel..."
-lxc remote add ubuntu-old https://cloud-images.ubuntu.com/releases/ --protocol simplestreams
-
-# Buat container legacy-script-env
-status_msg "Membuat container legacy-script-env dengan Ubuntu 20.04..."
+# Tambahkan remote image dari Linux Containers jika belum ada
+if ! lxc remote list | grep -q "images"; then
+    status_msg "Menambahkan remote image dari Linux Containers..."
+    lxc remote add images https://images.linuxcontainers.org
+fi
 
 # Hapus container jika sudah ada
 if lxc list | grep -q "legacy-script-env"; then
@@ -56,13 +55,13 @@ if lxc list | grep -q "legacy-script-env"; then
     lxc delete legacy-script-env
 fi
 
-# Buat container baru dari image yang valid
-status_msg "Mendownload image Ubuntu 20.04 yang valid..."
-lxc launch ubuntu-old:20.04 legacy-script-env
+# Buat container baru dari image Ubuntu 20.04
+status_msg "Membuat container legacy-script-env dengan Ubuntu 20.04..."
+lxc launch images:ubuntu/20.04 legacy-script-env
 
 # Tunggu container mulai
 status_msg "Menunggu container mulai..."
-while ! lxc list | grep -q "legacy-script-env.*RUNNING"; do
+until lxc list | grep -q "legacy-script-env.*RUNNING"; do
     echo "Menunggu container mulai..."
     sleep 5
 done
@@ -83,9 +82,6 @@ echo -e '\nalias virtual="lxc exec legacy-script-env -- bash"' >> ~/.bashrc
 echo -e 'alias root="exit"' >> ~/.bashrc
 echo -e 'alias container="lxc exec legacy-script-env -- sudo -u user -i"' >> ~/.bashrc
 
-# Aktifkan alias tanpa perlu restart terminal
-source ~/.bashrc
-
 # Informasi selesai
 status_msg "Instalasi selesai!"
 echo -e "\n\033[1;33mPERHATIAN:\033[0m Jika Anda menggunakan ZSH, tambahkan alias ke ~/.zshrc juga\n"
@@ -102,8 +98,10 @@ echo -e "  - \033[1;36mlxc start legacy-script-env\033[0m : Untuk memulai contai
 status_msg "Verifikasi container..."
 lxc list
 
-# Masuk ke container
+# Prompt masuk ke container
 read -p "Masuk ke container sekarang? (y/n) " choice
 if [[ "$choice" =~ [yY] ]]; then
     lxc exec legacy-script-env -- bash
+else
+    status_msg "Silakan jalankan 'virtual' atau 'container' di terminal baru setelah restart."
 fi
