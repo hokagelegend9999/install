@@ -1,0 +1,515 @@
+#!/bin/bash
+# Install dependencies
+
+##############################################################################
+
+BIBlack='\033[1;90m'      # Black
+BIRed='\033[1;91m'        # Red
+BIGreen='\033[1;92m'      # Green
+BIYellow='\033[1;93m'     # Yellow
+BIBlue='\033[1;94m'       # Blue
+BIPurple='\033[1;95m'     # Purple
+BICyan='\033[1;96m'       # Cyan
+BIWhite='\033[1;97m'      # White
+UWhite='\033[4;37m'       # White
+On_IPurple='\033[0;105m'  #
+On_IRed='\033[0;101m'
+IBlack='\033[0;90m'       # Black
+IRed='\033[0;91m'         # Red
+IGreen='\033[0;92m'       # Green
+IYellow='\033[0;93m'      # Yellow
+IBlue='\033[0;94m'        # Blue
+IPurple='\033[0;95m'      # Purple
+ICyan='\033[0;96m'        # Cyan
+IWhite='\033[0;97m'       # White
+BGCOLOR='\e[1;97;101m'    # WHITE RED
+red='\e[1;31m'
+green='\e[0;32m'
+yell='\e[1;33m'
+tyblue='\e[1;36m'
+NC='\e[0m'
+
+##############################################################################
+
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+export PINK='\033[0;35m'
+export YELLOW='\033[0;33m'
+
+echo -e "${GREEN}♻️Check Validasi Masuk...${NC}"
+sleep 3
+clear 
+
+mkdir -p /etc/data
+
+# Mendapatkan IP publik pengguna
+user_ip=$(curl -s https://ipinfo.io/ip)
+
+# Meminta nama client dan memvalidasi
+while true; do
+    read -rp $'\033[0;32mMasukkan Nama Client:\033[0m ' client_name
+
+    # Validasi Nama Client (misalnya tidak kosong dan hanya huruf)
+    if [[ -z "$client_name" ]]; then
+        echo "Nama Client tidak boleh kosong. Silakan masukkan kembali."
+        continue
+    elif [[ ! "$client_name" =~ ^[A-Za-z]+$ ]]; then
+        echo "Nama Client hanya boleh berisi huruf. Silakan masukkan kembali."
+        continue
+    fi
+
+    # Menggunakan curl untuk memeriksa apakah client_name ada dalam file permission.txt
+    permission_file=$(curl -s https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/izin.txt)
+    if echo "$permission_file" | grep -q -i "$client_name"; then
+        exp_date=$(echo "$permission_file" | grep -i "$client_name" | awk '{print $4}')
+        echo "Client Name accepted... Let's go..."
+        break
+    else
+        echo "Untuk Daftar Hubungi Admin Hokage Legend"
+        rm -f /root/home # Ganti dengan path yang sesuai ke file installer
+        exit 1
+    fi
+done
+
+echo -e "${GREEN}Sedang Melanjutkan proses...${NC}"
+sleep 2
+
+echo -e "${GREEN}Mengunduh dan menginstal dependensi...${NC}"
+sleep 2
+
+clear
+
+# Telegram Bot API details
+TOKEN="7911375235:AAERwknqnWLoqWFbsSuUfqCQGMy93UQHUTk"
+CHAT_ID="1469244768"
+
+# Function to send message to Telegram
+send_telegram_message() {
+    MESSAGE=$1
+    BUTTON1_URL="https://t.me/hokagelegend1"
+    BUTTON2_URL="https://wa.me/087726917005"
+    BUTTON_TEXT1="Telegram 😎"
+    BUTTON_TEXT2="Whatsapp 🐳"
+
+    RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
+        -d chat_id="$CHAT_ID" \
+        -d parse_mode="MarkdownV2" \
+        -d text="$MESSAGE" \
+        -d reply_markup='{
+            "inline_keyboard": [
+                [{"text": "'"$BUTTON_TEXT1"'", "url": "'"$BUTTON1_URL"'"}, {"text": "'"$BUTTON_TEXT2"'", "url": "'"$BUTTON2_URL"'"}]
+            ]
+        }')
+
+    # Print the response using jq to pretty-print
+    echo "$RESPONSE" | jq .
+}
+
+##############################################################################
+
+# Fungsi warna teks
+purple()  { echo -e "\033[35;1m${*}\033[0m"; }
+tyblue()  { echo -e "\033[36;1m${*}\033[0m"; }
+yellow()  { echo -e "\033[33;1m${*}\033[0m"; }
+green()   { echo -e "\033[32;1m${*}\033[0m"; }
+red()     { echo -e "\033[31;1m${*}\033[0m"; }
+
+# Validasi root access
+if [[ "${EUID}" -ne 0 ]]; then
+    red "Script harus dijalankan sebagai user root!"
+    exit 1
+fi
+
+# Validasi virtualisasi
+if [[ "$(systemd-detect-virt)" == "openvz" ]]; then
+    red "OpenVZ tidak didukung!"
+    exit 1
+fi
+
+# Konfigurasi hostname
+cd /root || exit 1
+local_ip=$(hostname -I | cut -d' ' -f1)
+host_name=$(hostname)
+
+# Perbaiki file hosts jika diperlukan
+if ! grep -q "^${local_ip} ${host_name}" /etc/hosts; then
+    echo "${local_ip} ${host_name}" >> /etc/hosts
+fi
+
+# Fungsi konversi waktu
+secs_to_human() {
+    local jam=$(( $1 / 3600 ))
+    local menit=$(( ($1 % 3600) / 60 ))
+    local detik=$(( $1 % 60 ))
+    echo "Waktu instalasi: ${jam} jam ${menit} menit ${detik} detik"
+}
+
+##############################################################################
+
+rm -rf /etc/phreakers
+mkdir -p /etc/phreakers
+mkdir -p /etc/phreakers/theme
+mkdir -p /var/lib/ >/dev/null 2>&1
+echo "IP=" >> /var/lib/ipvps.conf
+clear
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}             MASUKKAN NAMA KAMU         ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+echo " "
+until [[ $name =~ ^[a-zA-Z0-9_.-]+$ ]]; do
+read -rp "Masukan Nama Kamu Disini tanpa spasi : " -e name
+done
+rm -rf /etc/profil
+echo "$name" > /etc/profil
+echo ""
+clear
+author=$(cat /etc/profil)
+echo ""
+echo ""
+
+fun_bar() {
+    CMD[0]="$1"
+    CMD[1]="$2"
+    (
+        [[ -e $HOME/fim ]] && rm $HOME/fim
+        ${CMD[0]} -y >/dev/null 2>&1
+        ${CMD[1]} -y >/dev/null 2>&1
+        touch $HOME/fim
+    ) >/dev/null 2>&1 &
+    tput civis
+    echo -ne "  \033[0;33mUpdate Domain.. \033[1;37m- \033[0;33m["
+    while true; do
+        for ((i = 0; i < 18; i++)); do
+            echo -ne "\033[0;32m#"
+            sleep 0.1s
+        done
+        [[ -e $HOME/fim ]] && rm $HOME/fim && break
+        echo -e "\033[0;33m]"
+        sleep 1s
+        tput cuu1
+        tput dl1
+        echo -ne "  \033[0;33mUpdate Domain... \033[1;37m- \033[0;33m["
+    done
+    echo -e "\033[0;33m]\033[1;37m -\033[1;32m Succes !\033[1;37m"
+    tput cnorm
+}
+
+clear
+cd
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ \033[1;37mPlease select a your Choice to Set Domain${BIBlue}│${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│  [ 1 ]  \033[1;37mDomain Kamu Sendiri & Domain SlowDNS Kamu Sendiri    ${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+until [[ $domain =~ ^1$ ]]; do 
+read -p "   Please select number 1 : " domain
+done
+
+if [[ $domain == "1" ]]; then
+clear
+
+echo " "
+until [[ $dns1 =~ ^[a-zA-Z0-9_.-]+$ ]]; do 
+echo -e "${BIBlue}══════════════════════════════════════════${NC}"
+read -rp "Masukan domain kamu Disini : " -e dns1
+
+done
+echo ""
+mkdir -p /etc/xray
+mkdir -p /etc/v2ray
+touch /etc/xray/domain
+touch /etc/v2ray/domain
+echo "$dns1" > /etc/xray/domain
+echo "$dns1" > /etc/v2ray/domain
+echo "IP=$dns1" > /var/lib/ipvps.conf
+clear
+echo " "
+until [[ $dns2 =~ ^[a-zA-Z0-9_.-]+$ ]]; do
+echo -e "${BIBlue}══════════════════════════════════════════${NC}"
+read -rp "Masukan Domain SlowDNS kamu Disini : " -e dns2
+done
+mkdir -p /etc/xray
+touch /etc/xray/nsdomain
+echo "$dns2" > /etc/xray/nsdomain
+echo "$dns2" >/etc/xray/dns
+fi
+
+
+##############################################################################
+
+# Daftar tema warna
+declare -A themes=(
+  [red]=$'\E[40;1;41m:\033[0;31m'
+  [green]=$'\E[40;1;42m:\033[0;32m'
+  [yellow]=$'\E[40;1;43m:\033[0;33m'
+  [blue]=$'\E[40;1;44m:\033[0;34m'
+  [magenta]=$'\E[40;1;95m:\033[0;95m'
+  [cyan]=$'\E[40;1;46m:\033[0;36m'
+)
+
+# Membuat file konfigurasi tema
+for color in "${!themes[@]}"; do
+  IFS=':' read -r bg text <<< "${themes[$color]}"
+  cat << EOF > "/etc/phreakers/theme/${color}"
+BG : ${bg}
+TEXT : ${text}
+EOF
+done
+
+# Set tema default ke cyan
+echo "cyan" > /etc/phreakers/theme/color.conf
+
+##############################################################################
+
+cd
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
+sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null 2>&1
+clear
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-Tools/tools.sh &> /dev/null
+chmod +x tools.sh 
+bash tools.sh
+start=$(date +%s)
+ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+apt install git curl -y >/dev/null 2>&1
+apt install python -y >/dev/null 2>&1
+
+##############################################################################
+
+cd
+clear
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-Tools/limit.sh && chmod +x limit.sh && ./limit.sh
+clear
+
+##############################################################################
+
+##############################################################################
+
+function SKT4100(){
+fun_bar() {
+    CMD[0]="$1"
+    CMD[1]="$2"
+    (
+        [[ -e $HOME/fim ]] && rm $HOME/fim
+        ${CMD[0]} -y >/dev/null 2>&1
+        ${CMD[1]} -y >/dev/null 2>&1
+        touch $HOME/fim
+    ) >/dev/null 2>&1 &
+    tput civis
+    echo -ne "  \033[0;33mSedang Menginstal File \033[1;37m- \033[0;33m["
+    while true; do
+        for ((i = 0; i < 18; i++)); do
+            echo -ne "\033[0;32m#"
+            sleep 0.1s
+        done
+        [[ -e $HOME/fim ]] && rm $HOME/fim && break
+        echo -e "\033[0;33m]"
+        sleep 1s
+        tput cuu1
+        tput dl1
+        echo -ne "  \033[0;33mSabar Dek, Proses cukup lama \033[1;37m- \033[0;33m["
+    done
+    echo -e "\033[0;33m]\033[1;37m -\033[1;32m Complete !\033[1;37m"
+    tput cnorm
+}
+
+res3() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-System/ssh-vpn.sh && chmod +x ssh-vpn.sh && ./ssh-vpn.sh
+clear
+}
+
+res4() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-System/ins-xray.sh && chmod +x ins-xray.sh && ./ins-xray.sh
+clear
+}
+
+res5() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-ws/insshws.sh && chmod +x insshws.sh && ./insshws.sh
+clear
+}
+
+res6() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-System/set-br.sh && chmod +x set-br.sh && ./set-br.sh
+clear
+}
+
+res7() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-ws/ohp.sh && chmod +x ohp.sh && ./ohp.sh
+clear
+}
+
+res8() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/menu/update.sh && chmod +x update.sh && ./update.sh
+clear
+}
+
+res9() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-System/slowdns.sh && chmod +x slowdns.sh && ./slowdns.sh
+clear
+}
+
+res10() {
+wget https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-System/udp-custom.sh && chmod +x udp-custom.sh && bash udp-custom.sh
+clear
+}
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}    PROCESS INSTALLED SSH WS / OPENVPN  ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res3'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}          PROCESS INSTALLED XRAY        ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res4'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}      PROCESS INSTALLED WEBSOCKET SSH   ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res5'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}      PROCESS INSTALLED BACKUP MENU     ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res6'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}          PROCESS INSTALLED OHP         ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res7'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}          DOWNLOAD EXTRA MENU           ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res8'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}          DOWNLOAD SLOWDNS              ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res9'
+
+echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+echo -e "${BIBlue}│ ${BGCOLOR}          DOWNLOAD UDP COSTUM           ${NC}${BIBlue} │${NC}"
+echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+fun_bar 'res10'
+}
+SKT4100
+
+
+##############################################################################
+
+##############################################################################
+
+cat> /root/.profile << END
+if [ "$BASH" ]; then
+if [ -f ~/.bashrc ]; then
+. ~/.bashrc
+fi
+fi
+mesg n || true
+clear
+menu
+END
+chmod 644 /root/.profile
+if [ -f "/root/log-install.txt" ]; then
+rm /root/log-install.txt > /dev/null 2>&1
+fi
+if [ -f "/etc/afak.conf" ]; then
+rm /etc/afak.conf > /dev/null 2>&1
+fi
+if [ ! -f "/etc/log-create-user.log" ]; then
+echo "Log All Account " > /etc/log-create-user.log
+fi
+history -c
+serverV=$( curl -sS https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/SKT-Tools/skt-versi  )
+echo $serverV > /opt/.ver
+aureb=$(cat /home/re_otm)
+b=11
+if [ $aureb -gt $b ]
+then
+gg="PM"
+else
+gg="AM"
+fi
+cd
+
+##############################################################################
+
+curl -sS ifconfig.me > /etc/myipvps
+curl -s ipinfo.io/city?token=75082b4831f909 >> /etc/xray/city
+curl -s ipinfo.io/org?token=75082b4831f909  | cut -d " " -f 2-10 >> /etc/xray/isp
+rm /root/setup.sh >/dev/null 2>&1
+rm /root/slhost.sh >/dev/null 2>&1
+rm /root/ssh-vpn.sh >/dev/null 2>&1
+rm /root/ins-xray.sh >/dev/null 2>&1
+rm /root/insshws.sh >/dev/null 2>&1
+rm /root/set-br.sh >/dev/null 2>&1
+rm /root/ohp.sh >/dev/null 2>&1
+rm /root/update.sh >/dev/null 2>&1
+rm /root/slowdns.sh >/dev/null 2>&1
+rm -rf /etc/bot
+mkdir -p /etc/bot
+mkdir -p /etc/sf/limit/vmess/ip
+mkdir -p /etc/limit/vmess
+mkdir -p /etc/vmess/limit/ip
+mkdir -p /etc/limit/vless
+mkdir -p /etc/sf/limit/vless/ip
+mkdir -p /etc/limit/trojan
+mkdir -p /etc/sf/limit/trojan/ip
+mkdir -p /etc/vmess
+mkdir -p /etc/vless
+mkdir -p /etc/trojan
+touch /etc/bot/.bot.db
+touch /etc/vmess/.vmess.db
+secs_to_human "$(($(date +%s) - ${start}))" | tee -a log-install.txt
+sleep 3
+echo  ""
+cd
+
+##############################################################################
+
+# Send success message to Telegram
+IPVPS=$(curl -s https://ipinfo.io/ip)
+HOSTNAME=$(hostname)
+OS=$(lsb_release -d | awk '{print $2,$3,$4}')
+ISP=$(curl -s https://ipinfo.io/org | awk '{print $2,$3,$4}')
+REGION=$(curl -s https://ipinfo.io/region)
+DATE=$(date '+%Y-%m-%d')
+TIME=$(date '+%H:%M:%S')
+
+MESSAGE="\`\`\`
+❏━━━━━━━━━━━━━━━━━❏
+🤖 Hokage Store Project 🤖
+❏━━━━━━━━━━━━━━━━━❏
+❖ Status      : Active
+❖ Status SC   : Admin Access
+❖ Linux OS    : $OS
+❖ ISP         : $ISP
+❖ IP VPS      : $IPVPS
+❖ Area ISP    : $REGION
+❖ Waktu       : $TIME
+❖ Tanggal     : $DATE
+❏━━━━━━━━***************━━━━━━━━━❏
+👑 Dev https://t.me/hokagelegend1 👑
+❏━━━━━━━******************━━━━━━━━❏
+\`\`\`"
+
+send_telegram_message "$MESSAGE"
+clear
+sleep 2
+
+
+
+echo -e "${BIBlue}════════════════════════════════════════${NC}"
+echo -e "${BIBlue} Script telah berhasil di install"
+rm -rf *
+rm /root/home
+echo -e ""
+echo -e "[\e[1;31mWARNING\e[0m] Reboot sekali biar ga error lur [default y](y/n)? "
+read answer
+if [ "$answer" == "${answer#[Yy]}" ] ;then
+exit 0
+else
+cat /dev/null > ~/.bash_history && history -c && reboot
+fi
