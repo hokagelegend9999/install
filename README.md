@@ -9,6 +9,11 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 cd root
 rm virtual
 ```
+1. jALANKAN SCRIPT VIRTUAL
+```
+lxc exec legacy-script-env -- bash
+```
+
 1.  INSTALL SCRIPT TERSEBUT SETELAH UPDATE & UPGRADE
 2. MASUK DENGAN "virtual" KELUAR DENGAN " exit "
 3. IP PORT FORWARDING
