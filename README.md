@@ -168,7 +168,7 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 ### CARA INSTALASI :     
 
 1.  :    
-<pre><code>apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub</code></pre>
+<pre><code>apt-get update && apt-get upgrade -y && apt install grub2-common && apt dist-upgrade -y && update-grub</code></pre>
 
 2 :    
 <pre><code>apt install curl jq wget screen build-essential -y && reboot</code></pre>
