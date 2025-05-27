@@ -11,6 +11,33 @@ rm virtual
 ```
 1.  INSTALL SCRIPT TERSEBUT SETELAH UPDATE & UPGRADE
 2. MASUK DENGAN "virtual" KELUAR DENGAN " exit "
+3. IP PORT FORWARDING
+
+```
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+# Web dan custom
+sudo iptables -t nat -A PREROUTING -p tcp --dport 80     -j DNAT --to 10.0.3.167:80
+sudo iptables -t nat -A PREROUTING -p tcp --dport 81     -j DNAT --to 10.0.3.167:81
+sudo iptables -t nat -A PREROUTING -p tcp --dport 86     -j DNAT --to 10.0.3.167:86
+sudo iptables -t nat -A PREROUTING -p tcp --dport 443    -j DNAT --to 10.0.3.167:443
+sudo iptables -t nat -A PREROUTING -p tcp --dport 8080   -j DNAT --to 10.0.3.167:8080
+sudo iptables -t nat -A PREROUTING -p tcp --dport 51443  -j DNAT --to 10.0.3.167:51443
+sudo iptables -t nat -A PREROUTING -p tcp --dport 58080  -j DNAT --to 10.0.3.167:58080
+sudo iptables -t nat -A PREROUTING -p tcp --dport 40000  -j DNAT --to 10.0.3.167:40000
+sudo iptables -t nat -A PREROUTING -p tcp --dport 666    -j DNAT --to 10.0.3.167:666
+
+# VPN (SSTP & PPTP)
+sudo iptables -t nat -A PREROUTING -p tcp --dport 1723   -j DNAT --to 10.0.3.167:1723
+# VPN IPSec (L2TP/IPSec)
+sudo iptables -t nat -A PREROUTING -p udp --dport 500    -j DNAT --to 10.0.3.167:500
+sudo iptables -t nat -A PREROUTING -p udp --dport 1701   -j DNAT --to 10.0.3.167:1701
+sudo iptables -t nat -A POSTROUTING -s 10.0.3.0/24 -j MASQUERADE
+sudo iptables -A FORWARD -p gre -d 10.0.3.167 -j ACCEPT
+sudo apt install iptables-persistent -y
+sudo netfilter-persistent save
+
+```
 
 ## 🚀 ALPHA SCRIPT
 
