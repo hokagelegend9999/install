@@ -131,10 +131,12 @@ Lalu tambahkan aturan forward agar trafik dari VPN bisa diterima:
 bash
 Copy
 Edit
+
+```
 sudo iptables -A FORWARD -i ppp+ -o eth0 -j ACCEPT
 sudo iptables -A FORWARD -i eth0 -o ppp+ -m state --state RELATED,ESTABLISHED -j ACCEPT
 ppp+ adalah interface yang dipakai PPTP (dynamic ppp interface).
-
+```
 3. Simpan aturan iptables agar tetap aktif setelah reboot
 Install paket iptables-persistent:
 
