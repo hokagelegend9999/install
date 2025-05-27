@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Installer LXC Legacy Script Environment untuk Ubuntu 24.04 (Host)
-# Container: Ubuntu 20.04 (Focal Fossa)
+# Container: Ubuntu 20.04 (Focal Fossa) - Versi Diperbaiki
 
 # Fungsi untuk menampilkan pesan status
 function status_msg {
@@ -25,9 +25,15 @@ status_msg "Memulai instalasi LXC Legacy Script Environment (Ubuntu 20.04)..."
 status_msg "Memperbarui paket sistem..."
 apt update && apt upgrade -y
 
-# Install LXC dan dependensi
-status_msg "Menginstall LXC dan dependensi yang diperlukan..."
-apt install -y lxc lxc-templates bridge-utils uidmap
+# Install LXC dan dependensi (termasuk LXD)
+status_msg "Menginstall LXC, LXD dan dependensi yang diperlukan..."
+apt install -y lxc lxd lxc-templates bridge-utils uidmap
+
+# Inisialisasi LXD (jika belum)
+if ! lxd init --preseed > /dev/null 2>&1; then
+    status_msg "Melakukan inisialisasi LXD..."
+    lxd init --auto
+fi
 
 # Konfigurasi LXC
 status_msg "Mengkonfigurasi LXC..."
@@ -35,42 +41,30 @@ echo "root:100000:65536" | tee -a /etc/subuid /etc/subgid
 
 # Buat container legacy-script-env dengan Ubuntu 20.04
 status_msg "Membuat container legacy-script-env dengan Ubuntu 20.04..."
-lxc-create -n legacy-script-env -t download -- -d ubuntu -r focal -a amd64
 
-# Konfigurasi container
-status_msg "Mengkonfigurasi container..."
-cat <<EOF > /var/lib/lxc/legacy-script-env/config
-# Template common configuration
-lxc.include = /usr/share/lxc/config/ubuntu.common.conf
+# Hapus container jika sudah ada
+if lxc list | grep -q "legacy-script-env"; then
+    status_msg "Menghapus container yang sudah ada..."
+    lxc stop legacy-script-env --force
+    lxc delete legacy-script-env
+fi
 
-# Container specific configuration
-lxc.rootfs.path = dir:/var/lib/lxc/legacy-script-env/rootfs
-lxc.uts.name = legacy-script-env
-
-# Network configuration
-lxc.net.0.type = veth
-lxc.net.0.link = lxcbr0
-lxc.net.0.flags = up
-lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
-EOF
-
-# Start container
-status_msg "Menjalankan container..."
-lxc-start -n legacy-script-env
+# Buat container baru
+lxc launch ubuntu:20.04 legacy-script-env
 
 # Tunggu container mulai
 status_msg "Menunggu container mulai..."
-sleep 10
+sleep 15  # Waktu tunggu lebih lama
 
 # Setup dasar di dalam container
 status_msg "Menyiapkan environment di dalam container..."
-lxc-attach -n legacy-script-env -- bash -c "apt update && apt upgrade -y"
-lxc-attach -n legacy-script-env -- bash -c "apt install -y sudo curl wget nano"
+lxc exec legacy-script-env -- bash -c "apt update && apt upgrade -y"
+lxc exec legacy-script-env -- bash -c "apt install -y sudo curl wget nano"
 
 # Buat user dengan sudo privileges di dalam container
 status_msg "Membuat user di dalam container..."
-lxc-attach -n legacy-script-env -- bash -c "useradd -m -s /bin/bash user && echo 'user:userpass' | chpasswd"
-lxc-attach -n legacy-script-env -- bash -c "usermod -aG sudo user"
+lxc exec legacy-script-env -- bash -c "useradd -m -s /bin/bash user && echo 'user:userpass' | chpasswd"
+lxc exec legacy-script-env -- bash -c "usermod -aG sudo user"
 
 # Buat alias untuk masuk/keluar container
 status_msg "Membuat alias untuk memudahkan akses container..."
@@ -78,9 +72,8 @@ echo -e '\nalias virtual="lxc exec legacy-script-env -- bash"' >> ~/.bashrc
 echo -e 'alias root="exit"' >> ~/.bashrc
 echo -e 'alias container="lxc exec legacy-script-env -- sudo -u user -i"' >> ~/.bashrc
 
-# Buat file info di desktop container
-status_msg "Membuat file info di container..."
-lxc-attach -n legacy-script-env -- bash -c "echo -e 'Container Ubuntu 20.04 (Focal Fossa)\n\nPerintah:\n- Ketik \"root\" untuk keluar\n- Ketik \"virtual\" dari host untuk masuk kembali' > /home/user/INFO.txt"
+# Aktifkan alias tanpa perlu restart terminal
+source ~/.bashrc
 
 # Informasi selesai
 status_msg "Instalasi selesai!"
@@ -88,6 +81,10 @@ echo -e "\nAnda sekarang dapat menggunakan perintah berikut:"
 echo -e "  - \033[1;36mvirtual\033[0m   : Untuk masuk ke dalam container sebagai root"
 echo -e "  - \033[1;36mcontainer\033[0m : Untuk masuk ke dalam container sebagai user"
 echo -e "  - \033[1;36mroot\033[0m      : Untuk keluar dari container\n"
+
+# Verifikasi container
+status_msg "Verifikasi container..."
+lxc list
 
 # Masuk ke container
 read -p "Masuk ke container sekarang? (y/n) " choice
