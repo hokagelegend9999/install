@@ -1,5 +1,7 @@
 # install
 
+
+
 ```
 cd root
 rm virtual
@@ -7,7 +9,8 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 cd root
 rm virtual
 ```
-
+1.  INSTALL SCRIPT TERSEBUT SETELAH UPDATE & UPGRADE
+2. MASUK DENGAN "virtual" KELUAR DENGAN " exit "
 
 ## 🚀 ALPHA SCRIPT
 
