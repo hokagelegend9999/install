@@ -1,4 +1,4 @@
-# install
+# install ALL OS UBUNTU 
 
 
 
