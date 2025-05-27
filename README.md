@@ -9,15 +9,7 @@ Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, m
 
 ---
 
-## 💾 BACKUP DATA VPS
 
-Fitur backup data VPS memungkinkan Anda menyimpan konfigurasi penting dengan mudah dan aman, cukup satu klik!
-
-<p align="center">
-  <img src="https://github.com/hokagelegend9999/alpha/blob/main/1.png?raw=true" alt="Backup Data VPS" width="400"/>
- <img src="https://github.com/hokagelegend9999/alpha/blob/main/2.png?raw=true" alt="Backup Data VPS" width="400"/>
- <img src="https://github.com/hokagelegend9999/alpha.v2/blob/main/Screenshot%202025-04-23%20153225.png?raw=true alt="Backup Data VPS" width="400"/>
-</p>
 
 ### DEPENDENSI 
 ```
@@ -61,29 +53,6 @@ Silahkan Restart Service.
 Jika Statsus Service Masih Off
 Silahkan Reboot vps kalian
 ```
-
-
-- Langkah 1: 
-Membuat Bot di Telegram
-Buka Telegram dan Cari BotFather:
-
-Cari BotFather di Telegram dengan mengetikkan "BotFather" di kolom pencarian.
-Pilih BotFather (akun resmi dengan tanda centang biru).
-Membuat Bot Baru:
-![Screenshot 2024-06-04 115130](https://github.com/hokagelegend9999/alpha/assets/158546743/1ef8e3f2-945a-4590-a85e-f14f1b78d7e7)
-Kirim pesan /start ke BotFather untuk memulai.
-Kirim pesan /newbot untuk membuat bot baru.
-Ikuti instruksi untuk memberikan nama dan username untuk bot Anda.
-Setelah selesai, BotFather akan memberikan token API bot. Simpan token ini karena akan digunakan dalam skrip Anda.
-
-
-- Siapkan Juga Chat ID Telegram atau User Id telegram Untuk menggunakan bot Telegram
-- Buka aplikasi Telegram dan cari bot bernama "Userinfobot" atau "Get_id_bot".
-- 
-  ![Screenshot 2024-06-05 082241](https://github.com/hokagelegend9999/alpha/assets/158546743/e97b1869-a38a-4899-a5fb-3a6b331b3558)
-
-Klik "Start" untuk memulai bot.
-Bot akan secara otomatis mengirimkan pesan berisi chat ID kamu.
 
 
 
