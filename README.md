@@ -1,6 +1,6 @@
 # install
 
-## 🚀 TAMPILAN MENU ALPHA
+## 🚀 ALPHA SCRIPT
 
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
 
@@ -10,12 +10,6 @@ Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, m
 
 ---
 
-
-
-### DEPENDENSI 
-```
-sudo apt install dnsutils cron python3 gcc make build-essential zip unzip wget curl screen libz-dev g++ libreadline-dev libreadline-dev zlib1g-dev libssl-dev dos2unix cron vnstat mc jq bzip2 gzip vnstat coreutils rsyslog iftop git apt-transport-https build-essential earlyoom htop iptables jq python2 ruby cmake coreutils rsyslog net-tools nano sed gnupg gnupg1 bc jq dirmngr libxml-parser-perl lsof libsqlite3-dev python3-pip -y && python3 -m pip install --upgrade pip &&  python3 -m pip install tabulate && wget https://github.com/fians-xd/mmk/raw/refs/heads/main/shc.zip && unzip shc.zip && cd shc && sudo chmod +x * && sudo ./configure && sudo make && sudo make install && cd && rm -rf shc.zip shc
-```
 
 ### INSTALL SCRIPT 
 ```
@@ -31,32 +25,6 @@ wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/m
 - UBUNTU 20.04.05
 - DEBIAN 10
 
-### SETTING CLOUDFLARE
-```
-- SSL/TLS : FULL
-- SSL/TLS Recommender : OFF
-- GRPC : ON
-- WEBSOCKET : ON
-- Always Use HTTPS : OFF
-- UNDER ATTACK MODE : OFF
-```
-### INFO PORT
-```
-- PORT WEBSOCKET » 80
-- PORT TLS / SSL » 443
-- PORT HANCED WS » 80 » 8080
-- PORT NOOBZVPN  » 2082 » 8880  
-```
-### `WARNING !`
-```
-Jika Mendapatkan Status Service Off
-Silahkan Restart Service.
-Jika Statsus Service Masih Off
-Silahkan Reboot vps kalian
-```
-
-
-
 
 ### mendapatkan akses root ke vps mu
 
@@ -69,14 +37,6 @@ Silahkan Reboot vps kalian
 
 #### install debian 11
 
-
-```
-apt update -y && apt install wget -y
-wget https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/premi_fixed_debian11.sh
-chmod +x premi_fixed_debian11.sh
-./premi_fixed_debian11.sh
-
-```
 
 
 
@@ -163,7 +123,7 @@ ms-dns 8.8.4.4
 
 
 -----------------------------------------------------------------------------------------------------------------------
-# TAMPILAN COKLAT INSTALLASI
+#  COKLAT INSTALLASI
 
 ### CARA INSTALASI :     
 
@@ -185,31 +145,6 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 - UBUNTU 20.04.05
 - DEBIAN 10
 
-### SETTING CLOUDFLARE
-```
-- SSL/TLS : FULL
-- SSL/TLS Recommender : OFF
-- GRPC : ON
-- WEBSOCKET : ON
-- Always Use HTTPS : OFF
-- UNDER ATTACK MODE : OFF
-```
-### INFO PORT
-```
-- PORT WEBSOCKET » 80
-- PORT TLS / SSL » 443
-- PORT HANCED WS » 80 » 8080
-- PORT NOOBZVPN  » 2082 » 8880  
-```
-### `WARNING !`
-```
-Jika Mendapatkan Status Service Off
-Silahkan Restart Service.
-Jika Statsus Service Masih Off
-Silahkan Reboot vps kalian
-```
-
-
 
 ### UPDATE SCRIPT
 
@@ -222,32 +157,6 @@ Silahkan Reboot vps kalian
 
 ---------------------------------------------------------------------------------------
 
-<p align="center">
-  <img src="https://github.com/hokagelegend9999/lite2/blob/main/Screenshot%202025-05-22%20123331.png?raw=true" alt="Tampilan Menu" width="600"/>
-</p>
-
-## Service & Port:
-<br>
-- OpenSSH                  : 22<br>
-- SSH Websocket            : 80<br>
-- SSH SSL Websocket        : 443<br>
-- Stunnel4                 : 222, 777<br>
-- Dropbear                 : 109, 143<br>
-- Badvpn                   : 7100-7900<br>
-- Nginx                    : 81<br>
-- Vmess WS TLS             : 443<br>
-- Vless WS TLS             : 443<br>
-- Trojan WS TLS            : 443<br>
-- Shadowsocks WS TLS       : 443<br>
-- Vmess WS none TLS        : 80<br>
-- Vless WS none TLS        : 80<br>
-- Trojan WS none TLS       : 80<br>
-- Shadowsocks WS none TLS  : 80<br>
-- Vmess gRPC               : 443<br>
-- Vless gRPC               : 443<br>
-- Trojan gRPC              : 443<br>
-- Shadowsocks gRPC         : 443<br>
-<br>
 
 ## - Update Auto Reboot jam 12 Malam
 ## - Update Maximal IP User & IP Unlimited
@@ -319,46 +228,6 @@ apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub
 - UBUNTU 20.04.05
 - DEBIAN 10
 
-### FITUR TAMBAHAN
-- Tambah Swap 1GiB
-- Pemasangan yang dinamis
-- Tuning profile pada server
-- Penambahan fail2ban
-- Auto block sebagian ads indo by default
-- Auto clear log per 3 menit
-- Auto deler expired
-- User Details Akun
 
-### PORT INFO
-```
-- TROJAN WS 443
-- TROJAN GRPC 443
-- SHADOWSOCKS WS 443
-- SHADOWSOCKS GRPC 443
-- VLESS WS 443
-- VLESS GRPC 443
-- VLESS NONTLS 80
-- VMESS WS 443
-- VMESS GRPC 443
-- VMESS NONTLS 80
-- SSH WS / TLS 443
-- SSH NON TLS 8880
-- OVPN SSL/TCP 1194
-- SLOWDNS 5300
-```
 
-### SETTING CLOUDFLARE
-```
-- SSL/TLS : FULL
-- SSL/TLS Recommender : OFF
-- GRPC : ON
-- WEBSOCKET : ON
-- Always Use HTTPS : OFF
-- UNDER ATTACK MODE : OFF
-
-```
-
-<p align="center">
-  <img src="https://github.com/hokagelegend9999/force/blob/main/limit/Screenshot%202025-04-25%20134743.png?raw=true" alt="Tampilan Menu" width="600"/>
-</p>
 
