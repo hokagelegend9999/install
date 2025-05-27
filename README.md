@@ -1,5 +1,14 @@
 # install
 
+```
+cd root
+rm virtual
+apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/virtual && chmod +x virtual && ./virtual
+cd root
+rm virtual
+```
+
+
 ## 🚀 ALPHA SCRIPT
 
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
