@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Installer LXC Legacy Script Environment untuk Ubuntu 24.04 (Host)
-# Container: Ubuntu 20.04 (Focal Fossa) - Versi Diperbaiki
+# Container: Ubuntu 20.04 (Focal Fossa) - Versi Diperbaiki untuk Noble Numbat
 
 # Fungsi untuk menampilkan pesan status
 function status_msg {
@@ -25,17 +25,20 @@ status_msg "Memulai instalasi LXC Legacy Script Environment (Ubuntu 20.04)..."
 status_msg "Memperbarui paket sistem..."
 apt update && apt upgrade -y
 
-# Install LXC dan dependensi (termasuk LXD)
-status_msg "Menginstall LXC, LXD dan dependensi yang diperlukan..."
-apt install -y lxc lxd lxc-templates bridge-utils uidmap
+# Install LXC dan dependensi (paket lxd diganti dengan lxd-installer)
+status_msg "Menginstall LXC dan dependensi yang diperlukan..."
+apt install -y lxc lxc-templates bridge-utils uidmap snapd
 
-# Inisialisasi LXD (jika belum)
-if ! lxd init --preseed > /dev/null 2>&1; then
-    status_msg "Melakukan inisialisasi LXD..."
-    lxd init --auto
-fi
+# Install LXD melalui snap (cara baru di Ubuntu 24.04)
+status_msg "Menginstall LXD melalui snap..."
+snap install lxd
+snap refresh lxd
 
-# Konfigurasi LXC
+# Inisialisasi LXD
+status_msg "Melakukan inisialisasi LXD..."
+lxd init --auto
+
+# Konfigurasi subuid/subgid
 status_msg "Mengkonfigurasi LXC..."
 echo "root:100000:65536" | tee -a /etc/subuid /etc/subgid
 
@@ -50,7 +53,8 @@ if lxc list | grep -q "legacy-script-env"; then
 fi
 
 # Buat container baru
-lxc launch ubuntu:20.04 legacy-script-env
+status_msg "Mendownload image Ubuntu 20.04..."
+lxc launch images:ubuntu/20.04 legacy-script-env
 
 # Tunggu container mulai
 status_msg "Menunggu container mulai..."
@@ -59,7 +63,7 @@ sleep 15  # Waktu tunggu lebih lama
 # Setup dasar di dalam container
 status_msg "Menyiapkan environment di dalam container..."
 lxc exec legacy-script-env -- bash -c "apt update && apt upgrade -y"
-lxc exec legacy-script-env -- bash -c "apt install -y sudo curl wget nano"
+lxc exec legacy-script-env -- bash -c "apt install -y sudo curl wget nano gnupg2"
 
 # Buat user dengan sudo privileges di dalam container
 status_msg "Membuat user di dalam container..."
@@ -81,6 +85,8 @@ echo -e "\nAnda sekarang dapat menggunakan perintah berikut:"
 echo -e "  - \033[1;36mvirtual\033[0m   : Untuk masuk ke dalam container sebagai root"
 echo -e "  - \033[1;36mcontainer\033[0m : Untuk masuk ke dalam container sebagai user"
 echo -e "  - \033[1;36mroot\033[0m      : Untuk keluar dari container\n"
+echo -e "Perintah tambahan:"
+echo -e "  - \033[1;36mlxc list\033[0m  : Untuk melihat daftar container\n"
 
 # Verifikasi container
 status_msg "Verifikasi container..."
