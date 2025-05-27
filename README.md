@@ -161,6 +161,24 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
  wget https://github.com/hokagelegend9999/coklat/raw/refs/heads/main/update.sh && chmod +x update.sh && ./update.sh
 
 ```
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+#  HUMBLE INSTALLASI
+
+### CARA INSTALASI :     
+
+1.  :    
+<pre><code>apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub</code></pre>
+
+2 :    
+<pre><code>apt install curl jq wget screen build-essential -y && reboot</code></pre>
+
+
+### INSTALL SCRIPT 
+
+```
+apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/humble && chmod +x humble && ./humble
+```
 
 ---------------------------------------------------------------------------------------
 
