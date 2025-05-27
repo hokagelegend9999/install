@@ -185,6 +185,12 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/humble && chmod +x humble && ./humble
 ```
 
+3 : UPDATE SCRIPT HUMBLE
+
+```
+wget -q  https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/update_humble &&  chmod +x update_humble && ./update_humble
+```
+
 ---------------------------------------------------------------------------------------
 
 
