@@ -30,11 +30,6 @@ wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/m
 ```````
 
 
-#### install debian 11
-
-
-
-
 #### INSTALL ULANG VPS UBUNTU DEBIAN
 
 ```
@@ -45,11 +40,12 @@ bash reinstall.sh debian 11 --password PASSWORD_KAMU
 ```
 INSTALL HAPROXY DEBIAN 11
 
+```
 sudo apt install -t bullseye-backports haproxy
 sed -i "s#xxx#https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/#g" /etc/haproxy/haproxy.cfg
 sudo systemctl restart haproxy
 sudo systemctl status haproxy
-
+```
 
 ### MENU TAMBAHAN ( OPSIONAL)
 
