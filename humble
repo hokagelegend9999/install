@@ -30,13 +30,13 @@ data_server=$(curl -v --insecure --silent https://google.com/ 2>&1 | grep Date |
 date_list=$(date +"%Y-%m-%d" -d "$data_server")
 
   # // Banner
-echo -e "${YELLOW}----------------------------------------------------------${NC}"
-echo -e " WELCOME TO HOKAGE LEGEND STORE VPN ${YELLOW}(${NC}${green}Stable Edition${NC}${YELLOW})${NC}"
-echo -e " PROSES PENGECEKAN IP ADDRESS ANDA !!"
-echo -e "${purple}----------------------------------------------------------${NC}"
-echo -e " ›AUTHOR : ${green}HOKAGE STORE® ${NC}${YELLOW}(${NC}${green}V 3.5${NC}${YELLOW})${NC}"
-echo -e " ›TEAM 🅥🅝: HOKAGE STORE ${YELLOW}(${NC} 2025 ${YELLOW})${NC}"
-echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo -e "\033[1;38;5;208m╭─────────────────────────────────────────────────────╮\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;97;48;5;208m      🚀 HOKAGE LEGEND VPN STORE - PREMIUM EDITION     \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;97;48;5;208m             🔍 Checking Your IP Address...            \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m├─────────────────────────────────────────────────────┤\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;97m› AUTHOR  : \033[1;92mHOKAGE STORE® \033[1;33m(v3.5)\033[0m                     \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;97m› TEAM 🅥🅝: \033[1;96mHOKAGE STORE \033[1;33m(2025)\033[0m                       \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m╰─────────────────────────────────────────────────────╯\033[0m"
 echo ""
 sleep 2
 # // Checking Os Architecture
@@ -88,7 +88,7 @@ gem install lolcat
 apt install wondershaper -y
 clear
 # REPO    
-    REPO="https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/"
+    REPO="https://raw.githubusercontent.com/hokagelegend9999/Humble_V.1/refs/heads/main/"
 
 ####
 start=$(date +%s)
@@ -240,13 +240,14 @@ clear
 function pasang_domain() {
 echo -e ""
 clear
-    echo -e "   .----------------------------------."
-echo -e "   |\e[1;32mPILIH DOMAIN SILAHKAN \e[0m|"
-echo -e "   '----------------------------------'"
-echo -e "     \e[1;32m1)\e[0m Menggunakan Domain Sendiri"
-echo -e "     \e[1;32m2)\e[0m Menggunakan Domain Script"
-echo -e "   ------------------------------------"
-read -p "   Please select numbers 1-2 or Any Button(Random) : " host
+echo -e "\033[1;38;5;208m╭───────────────────────────────────────╮\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;97;48;5;208m     🌐 SELECT DOMAIN TYPE     \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m├───────────────────────────────────────┤\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;92m1)\033[0m \033[1;97mUse Your Own Domain\033[0m               \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m│ \033[1;92m2)\033[0m \033[1;97mUse Script Domain\033[0m                 \033[1;38;5;208m│\033[0m"
+echo -e "\033[1;38;5;208m╰───────────────────────────────────────╯\033[0m"
+echo -e "\033[1;38;5;208m› \033[1;97mSelect [1-2] or press Enter for random:\033[0m "
+read -p "   " host
 echo ""
 if [[ $host == "1" ]]; then
 echo -e "   \e[1;32mPlease Enter Your Subdomain $NC"
@@ -275,7 +276,7 @@ curl "ipinfo.io/city?token=7a814b6263b02c" > /root/.city
 MYIP=$(curl -sS ipv4.icanhazip.com)
 echo -e "\e[32mloading...\e[0m" 
 clear
-izinsc="https://raw.githubusercontent.com/hokagelegend9999/ijin/refs/heads/main/alpha"
+izinsc="https://raw.githubusercontent.com/hokagelegend9999/ijin/refs/heads/main/humble"
 # USERNAME
 rm -f /usr/bin/user
 username=$(curl $izinsc | grep $MYIP | awk '{print $2}')
@@ -317,12 +318,14 @@ URL="https://api.telegram.org/bot$KEY/sendMessage"
 ISP=$(cat /root/.isp)
 IP=$(curl -sS ipv4.icanhazip.com)
 CITY=$(cat /root/.city)
+DOMAIN=$(cat /etc/xray/domain)
 TIMEZONE=$(printf '%(%H:%M:%S)T')
     TEXT="
 <code>────────────────────</code>
 <b>⚡𝗡𝗢𝗧𝗜𝗙 𝗜𝗡𝗦𝗧𝗔𝗟𝗟 𝗦𝗖𝗥𝗜𝗣𝗧⚡</b>
 <code>────────────────────</code>
 <code>User     :</code><code>$username</code>
+<code>Domain     :</code><code>$DOMAIN</code>
 <code>ISP      :</code><code>$ISP</code>
 <code>CITY     :</code><code>$CITY</code>
 <code>IP       :</code><code>$IP</code>
@@ -540,7 +543,7 @@ print_success "Password SSH"
 function udp_mini(){
 clear
 print_install "Memasang Service Limit IP & Quota"
-wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/fv-tunnel && chmod +x fv-tunnel && ./fv-tunnel
+wget -q https://raw.githubusercontent.com/hokagelegend9999/Humble_V.1/refs/heads/main/config/fv-tunnel && chmod +x fv-tunnel && ./fv-tunnel
 
 # // Installing UDP Mini
 mkdir -p /usr/local/kyt/
@@ -592,7 +595,7 @@ clear
 print_install "Menginstall Dropbear"
 # // Installing Dropbear
 apt-get install dropbear -y > /dev/null 2>&1
-wget -q -O /etc/default/dropbear https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/dropbear.conf
+wget -q -O /etc/default/dropbear https://raw.githubusercontent.com/hokagelegend9999/Humble_V.1/refs/heads/main/config/dropbear.conf
 chmod +x /etc/default/dropbear
 /etc/init.d/dropbear restart
 /etc/init.d/dropbear status
@@ -602,7 +605,7 @@ print_success "Dropbear"
 function ins_udpSSH(){
 clear
 print_install "Menginstall Udp-custom"
-wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/udp-custom/udp-custom.sh
+wget -q https://raw.githubusercontent.com/hokagelegend9999/Humble_V.1/refs/heads/main/udp-custom/udp-custom.sh
 chmod +x udp-custom.sh 
 bash udp-custom.sh
 rm -fr udp-custom.sh
@@ -636,7 +639,7 @@ function ins_openvpn(){
 clear
 print_install "Menginstall OpenVPN"
 #OpenVPN
-wget https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/openvpn  chmod +x openvpn && ./openvpn
+wget https://raw.githubusercontent.com/hokagelegend9999/Humble_V.1/refs/heads/main/config/openvpn  chmod +x openvpn && ./openvpn
 /etc/init.d/openvpn restart
 print_success "OpenVPN"
 }
@@ -725,7 +728,7 @@ echo "Banner /etc/kyt.txt" >>/etc/ssh/sshd_config
 sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/kyt.txt"@g' /etc/default/dropbear
 
 # Ganti Banner
-wget -O /etc/kyt.txt https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/files/issue.net
+wget -O /etc/kyt.txt https://raw.githubusercontent.com/hokagelegend9999/Humble_V.1/refs/heads/main/files/issue.net
 print_success "Fail2ban"
 }
 
