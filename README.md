@@ -126,11 +126,11 @@ ms-dns 8.8.4.4
 
 
 ### INSTALL SCRIPT 
+
 ```
 apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/coklat/refs/heads/main/install.sh && chmod +x install.sh && ./install.sh
 ```
 
-```
 
 ### SUPPORT OS LINUX
 - UBUNTU 20.04.05
@@ -139,12 +139,11 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 
 ### UPDATE SCRIPT
 
-
-`````
+```
 
  wget https://github.com/hokagelegend9999/coklat/raw/refs/heads/main/update.sh && chmod +x update.sh && ./update.sh
 
-``````
+```
 
 ---------------------------------------------------------------------------------------
 
@@ -199,10 +198,13 @@ apt update && apt upgrade -y && apt install -y wget screen && wget -q https://ra
 
 ### BEFORE INSTALL
 1.
+
 ```
 apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub 
 ```
+
 2.
+
 ```
  apt install curl jq wget screen build-essential -y && reboot
 ```
