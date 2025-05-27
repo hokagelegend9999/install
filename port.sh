@@ -1,37 +1,50 @@
 #!/bin/bash
 
-# IP container
-CONTAINER_IP="10.0.3.167"
+CONTAINER="legacy-script-env"
+CONTAINER_IP="10.103.208.20"
 
-# Aktifkan IP Forwarding
-echo "Aktifkan IP forwarding..."
-echo 1 > /proc/sys/net/ipv4/ip_forward
-sysctl -w net.ipv4.ip_forward=1
+# Fungsi membuat port forward
+add_forward() {
+    NAME=$1
+    HOST_PORT=$2
+    CONTAINER_PORT=$3
+    PROTOCOL=${4:-tcp}
 
-# Daftar port TCP dan UDP
-PORTS_TCP=(80 81 86 443 8080 51443 58080 40000 666 1723)
-PORTS_UDP=(500 1701)
+    echo "Menambahkan forward: $NAME (Host:$HOST_PORT -> $CONTAINER_IP:$CONTAINER_PORT $PROTOCOL)"
+    lxc config device add "$CONTAINER" "$NAME" proxy \
+        listen=$PROTOCOL:0.0.0.0:$HOST_PORT \
+        connect=$PROTOCOL:$CONTAINER_IP:$CONTAINER_PORT \
+        bind=host
+}
 
-# NAT Masquerading
-echo "Setting NAT Masquerade untuk $CONTAINER_IP..."
-iptables -t nat -A POSTROUTING -s ${CONTAINER_IP%.*}.0/24 -j MASQUERADE
+echo "=== Menambahkan port forwarding ke container $CONTAINER ==="
 
-# Forward port TCP
-echo "Forwarding port TCP..."
-for port in "${PORTS_TCP[@]}"; do
-    echo " - Port TCP $port"
-    iptables -t nat -A PREROUTING -p tcp --dport $port -j DNAT --to $CONTAINER_IP:$port
-done
+# SSH over WebSocket (biasanya di port 80/443/2082/2086)
+add_forward "sshws80" 80 80
+add_forward "sshws443" 443 443
+add_forward "sshws2082" 2082 2082
+add_forward "sshws2086" 2086 2086
 
-# Forward port UDP
-echo "Forwarding port UDP..."
-for port in "${PORTS_UDP[@]}"; do
-    echo " - Port UDP $port"
-    iptables -t nat -A PREROUTING -p udp --dport $port -j DNAT --to $CONTAINER_IP:$port
-done
+# Xray (VMess, VLESS, Trojan - sesuaikan port sesuai config kamu)
+add_forward "xray443" 444 443
+add_forward "xray80" 8880 80
+add_forward "xray8080" 8080 8080
+add_forward "xray8443" 8443 8443
 
-# GRE protocol (untuk PPTP VPN)
-echo "Mengizinkan GRE protocol (PPTP VPN)..."
-iptables -A FORWARD -p gre -d $CONTAINER_IP -j ACCEPT
+# HAProxy (misal default HTTP load balancer port 8081)
+add_forward "haproxy8081" 8081 8081
 
-echo "Semua port forwarding berhasil diset!"
+# SSTP VPN (port 443 protokol TCP)
+add_forward "sstp443" 4443 443
+
+# PPTP VPN (port 1723 TCP)
+add_forward "pptp" 1723 1723
+
+# L2TP VPN (UDP port 1701)
+add_forward "l2tp" 1701 1701 udp
+
+# Dropbear SSH (biasanya port 44 atau 143)
+add_forward "dropbear44" 44 44
+add_forward "dropbear143" 143 143
+
+echo "✅ Semua port forwarding ditambahkan."
