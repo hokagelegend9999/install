@@ -12,31 +12,44 @@ apt update && apt install lxd -y
 echo "[*] Init LXD default profile..."
 lxd init --auto
 
-echo "[*] Membuat container Ubuntu 20.04 bernama 'legacy-script-env'..."
-lxc launch ubuntu:20.04 legacy-script-env
+CONTAINER="legacy-script-env"
+
+echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
+lxc launch ubuntu:20.04 "$CONTAINER"
 
 echo "[*] Menunggu container aktif..."
 sleep 10
 
 echo "[*] Menyiapkan dependensi di dalam container..."
-lxc exec legacy-script-env -- bash -c "
+lxc exec "$CONTAINER" -- bash -c "
   apt update && apt upgrade -y &&
   apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
+"
+
+# Tambahkan autostart menu di bashrc root dalam container
+echo "[*] Menambahkan auto-run 'menu' ke dalam /root/.bashrc container..."
+lxc exec "$CONTAINER" -- bash -c "
+cat >> /root/.bashrc <<EOF
+
+# Auto-run menu jika file ada dan executable
+if [ -x /usr/local/sbin/menu ]; then
+  /usr/local/sbin/menu
+fi
+EOF
 "
 
 echo "[*] Menambahkan alias global 'menu'..."
 
 # Cek dan tambahkan alias ke /etc/bash.bashrc
 if ! grep -q "alias menu=" /etc/bash.bashrc; then
-  echo "alias menu='lxc exec legacy-script-env -- bash'" >> /etc/bash.bashrc
+  echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
   echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
 else
   echo "ℹ️ Alias 'menu' sudah ada di /etc/bash.bashrc"
 fi
 
 # Ambil IP container legacy-script-env
-CONTAINER="legacy-script-env"
-CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -v "^$" | head -n1)
+CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -oP '\d+\.\d+\.\d+\.\d+')
 
 if [ -z "$CONTAINER_IP" ]; then
   echo "⚠️ Gagal mendapatkan IP container $CONTAINER"
