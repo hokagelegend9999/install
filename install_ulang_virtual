@@ -5,12 +5,9 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-if ! command -v lxc >/dev/null 2>&1; then
-  echo "ℹ️ LXC belum terinstall, melewati penghapusan container"
-else
-  echo "🔥 Menghapus semua container LXD..."
+echo "🔥 Menghapus semua container LXD jika ada..."
 
-  # Ambil daftar container valid (hindari baris kosong dan pesan status)
+if command -v lxc >/dev/null 2>&1; then
   containers=$(lxc list --format csv -c n | grep -v -E '^$|Installing|pending|Stopping|Starting')
 
   for container in $containers; do
@@ -19,15 +16,24 @@ else
     echo "🗑️ Menghapus container: $container"
     lxc delete "$container" || echo "⚠️ Gagal menghapus $container, lanjut..."
   done
+else
+  echo "ℹ️ LXC tidak ditemukan, melewati penghapusan container"
 fi
 
-echo "🛑 Menghentikan layanan LXD jika ada..."
-systemctl stop snap.lxd.daemon 2>/dev/null || echo "ℹ️ Layanan snap.lxd.daemon tidak berjalan"
+echo "🛑 Mematikan layanan dan socket LXD..."
+systemctl stop snap.lxd.daemon.service snap.lxd.daemon.unix.socket 2>/dev/null
+systemctl disable snap.lxd.daemon.service snap.lxd.daemon.unix.socket 2>/dev/null
 
-echo "📦 Menghapus snap LXD jika terinstall..."
+echo "📦 Menghapus snap LXD..."
 snap remove lxd --purge 2>/dev/null || echo "ℹ️ Snap LXD tidak terpasang"
 
 echo "🧹 Membersihkan direktori data LXD..."
 rm -rf /var/snap/lxd ~/snap/lxd
 
-echo "✅ LXD dan semua data sudah dibersihkan."
+# Hapus alias 'menu' dari /etc/bash.bashrc jika ada
+if grep -q "^alias menu=" /etc/bash.bashrc; then
+  sed -i '/^alias menu=/d' /etc/bash.bashrc
+  echo "🧹 Alias 'menu' dihapus dari /etc/bash.bashrc"
+fi
+
+echo "✅ Semua data dan konfigurasi LXD sudah dibersihkan."
