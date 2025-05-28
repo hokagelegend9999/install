@@ -226,7 +226,7 @@ apt update && apt upgrade -y && apt install -y wget screen && wget -q https://ra
 ➽ Debian 10 & 11 (recommended)   
 ➽ Ubuntu 20.04   
 
-### CARA INSTALASI :     
+### INSTALASI SCRIPT GAS :     
 
 1.  :    
 <pre><code>apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub</code></pre>
@@ -236,7 +236,7 @@ apt update && apt upgrade -y && apt install -y wget screen && wget -q https://ra
 
 3:    
 ➽ Pastikan anda sudah login sebagai root :    
-<pre><code>apt install tmux -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/gas/refs/heads/main/home && chmod +x home && tmux new-session -d -s hokagelegend './home' && tmux attach -t hokagelegend</code></pre>
+<pre><code>apt install tmux -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/gas && chmod +x gas && tmux new-session -d -s hokagelegend './gas' && tmux attach -t hokagelegend</code></pre>
 
 4 :     
 ➽ If during the installation connection was lost, login to the vps again and run the command ☞shell
@@ -272,7 +272,6 @@ apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub
 ### TESTED ON OS 
 - UBUNTU 20.04.05
 - DEBIAN 10
-
 
 
 
