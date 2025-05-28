@@ -6,93 +6,62 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-CONTAINER="legacy-script-env"
-
 echo "[*] Update & install LXD..."
 apt update && apt install lxd -y
 
 echo "[*] Init LXD default profile..."
 lxd init --auto
 
-echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
-lxc launch ubuntu:20.04 "$CONTAINER"
+echo "[*] Membuat container Ubuntu 20.04 bernama 'legacy-script-env'..."
+lxc launch ubuntu:20.04 legacy-script-env
 
 echo "[*] Menunggu container aktif..."
 sleep 10
 
 echo "[*] Menyiapkan dependensi di dalam container..."
-lxc exec "$CONTAINER" -- bash -c "
+lxc exec legacy-script-env -- bash -c "
   apt update && apt upgrade -y &&
   apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
 "
 
 echo "[*] Menambahkan alias global 'menu'..."
+
+# Cek dan tambahkan alias ke /etc/bash.bashrc
 if ! grep -q "alias menu=" /etc/bash.bashrc; then
-  echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
+  echo "alias menu='lxc exec legacy-script-env -- bash'" >> /etc/bash.bashrc
   echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
 else
   echo "ℹ️ Alias 'menu' sudah ada di /etc/bash.bashrc"
 fi
 
-echo "[*] Mengambil IP container $CONTAINER..."
-CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -v "^$" | head -n1 | awk '{print $1}')
+# Ambil IP container legacy-script-env
+CONTAINER="legacy-script-env"
+CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -v "^$" | head -n1)
 
 if [ -z "$CONTAINER_IP" ]; then
   echo "⚠️ Gagal mendapatkan IP container $CONTAINER"
-  exit 1
 else
   echo "[*] IP container $CONTAINER adalah $CONTAINER_IP"
 fi
 
-# Fungsi menambahkan port forwarding
-add_forward() {
-    NAME=$1
-    HOST_PORT=$2
-    CONTAINER_PORT=$3
-    PROTOCOL=${4:-tcp}
+echo "[*] Mengunduh dan menjalankan script port forwarding..."
 
-    echo "Menambahkan port forward: $NAME ($PROTOCOL $HOST_PORT → $CONTAINER_IP:$CONTAINER_PORT)"
-    lxc config device add "$CONTAINER" "$NAME" proxy \
-        listen=$PROTOCOL:0.0.0.0:$HOST_PORT \
-        connect=$PROTOCOL:$CONTAINER_IP:$CONTAINER_PORT \
-        bind=host || echo "⚠️  $NAME sudah ada, dilewati."
-}
+# Download script port forwarding ke /tmp/port.sh
+curl -fsSL https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh -o /tmp/port.sh
 
-echo "=== Menambahkan semua port forwarding ke container: $CONTAINER ==="
+if [ ! -f /tmp/port.sh ]; then
+  echo "❌ Gagal mengunduh port forwarding script!"
+  exit 1
+fi
 
-# Web Ports
-add_forward "http" 80 80
-add_forward "https" 443 443
+# Set executable dan jalankan script port forwarding dengan variabel yang di-export
+chmod +x /tmp/port.sh
 
-# SSH & SSH over WebSocket
-add_forward "ssh22" 22 22
-add_forward "sshws2082" 2082 2082
-add_forward "sshws2086" 2086 2086
+# Export variabel untuk script port.sh
+export CONTAINER="$CONTAINER"
+export CONTAINER_IP="$CONTAINER_IP"
 
-# Xray / VMess / VLESS / Trojan (contoh port populer)
-add_forward "xrayv443" 444 443
-add_forward "xrayv8443" 8443 8443
-add_forward "xrayv8080" 8080 8080
-add_forward "xrayv8880" 8880 80
-
-# Dropbear SSH (umumnya 44 / 143)
-add_forward "dropbear44" 44 44
-add_forward "dropbear143" 143 143
-
-# HAProxy
-add_forward "haproxy8081" 8081 8081
-
-# VPN Ports
-add_forward "sstp" 4443 443
-add_forward "pptp" 1723 1723
-add_forward "l2tp" 1701 1701 udp
-
-# Tambahan umum lainnya
-add_forward "dns53" 53 53 udp
-add_forward "openvpn1194" 1194 1194 udp
-add_forward "squid3128" 3128 3128
-
-echo "✅ Semua port forwarding selesai ditambahkan!"
+bash /tmp/port.sh
 
 echo ""
 echo "✅ Selesai! Container '$CONTAINER' siap digunakan."
