@@ -2,7 +2,7 @@
 
 # Cek root
 if [ "$(id -u)" -ne 0 ]; then
-  echo "❌ Harap jalankan script ini sebagai root (sudo)"
+  echo "❌ Jalankan script ini sebagai root (sudo)"
   exit 1
 fi
 
@@ -19,16 +19,14 @@ done
 echo "🔁 Mereset konfigurasi LXD..."
 lxd init --reset
 
-echo "🧼 Menghapus semua data LXD..."
+echo "🛑 Menghentikan layanan LXD..."
 systemctl stop snap.lxd.daemon
 
 echo "📦 Menghapus snap LXD..."
 snap remove lxd --purge
 
-echo "🧹 Membersihkan direktori LXD..."
+echo "🧹 Membersihkan direktori data LXD..."
 rm -rf /var/snap/lxd
 rm -rf ~/snap/lxd
 
-echo ""
-echo "✅ Semua data LXD telah dihapus bersih."
-echo "📌 LXD tidak diinstall ulang."
+echo "✅ Semua data dan konfigurasi LXD sudah dihapus bersih."
