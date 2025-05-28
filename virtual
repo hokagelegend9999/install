@@ -1,39 +1,100 @@
 #!/bin/bash
 
+# Cek apakah sudah root
 if [ "$(id -u)" -ne 0 ]; then
-  echo "❌ Jalankan sebagai root (sudo)"
+  echo "❌ Harap jalankan script ini sebagai root (sudo)"
   exit 1
 fi
 
-echo "🔥 Menghapus semua container LXD jika ada..."
+CONTAINER="legacy-script-env"
 
-if command -v lxc >/dev/null 2>&1; then
-  containers=$(lxc list --format csv -c n | grep -v -E '^$|Installing|pending|Stopping|Starting')
+echo "[*] Update & install LXD..."
+apt update && apt install lxd -y
 
-  for container in $containers; do
-    echo "⏳ Menghentikan container: $container"
-    lxc stop "$container" --force || echo "⚠️ Gagal menghentikan $container, lanjut..."
-    echo "🗑️ Menghapus container: $container"
-    lxc delete "$container" || echo "⚠️ Gagal menghapus $container, lanjut..."
-  done
+echo "[*] Init LXD default profile..."
+lxd init --auto
+
+echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
+lxc launch ubuntu:20.04 "$CONTAINER"
+
+echo "[*] Menunggu container aktif..."
+sleep 10
+
+echo "[*] Menyiapkan dependensi di dalam container..."
+lxc exec "$CONTAINER" -- bash -c "
+  apt update && apt upgrade -y &&
+  apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
+"
+
+echo "[*] Menambahkan alias global 'menu'..."
+if ! grep -q "alias menu=" /etc/bash.bashrc; then
+  echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
+  echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
 else
-  echo "ℹ️ LXC tidak ditemukan, melewati penghapusan container"
+  echo "ℹ️ Alias 'menu' sudah ada di /etc/bash.bashrc"
 fi
 
-echo "🛑 Mematikan layanan dan socket LXD..."
-systemctl stop snap.lxd.daemon.service snap.lxd.daemon.unix.socket 2>/dev/null
-systemctl disable snap.lxd.daemon.service snap.lxd.daemon.unix.socket 2>/dev/null
+echo "[*] Mengambil IP container $CONTAINER..."
+CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -v "^$" | head -n1 | awk '{print $1}')
 
-echo "📦 Menghapus snap LXD..."
-snap remove lxd --purge 2>/dev/null || echo "ℹ️ Snap LXD tidak terpasang"
-
-echo "🧹 Membersihkan direktori data LXD..."
-rm -rf /var/snap/lxd ~/snap/lxd
-
-# Hapus alias 'menu' dari /etc/bash.bashrc jika ada
-if grep -q "^alias menu=" /etc/bash.bashrc; then
-  sed -i '/^alias menu=/d' /etc/bash.bashrc
-  echo "🧹 Alias 'menu' dihapus dari /etc/bash.bashrc"
+if [ -z "$CONTAINER_IP" ]; then
+  echo "⚠️ Gagal mendapatkan IP container $CONTAINER"
+  exit 1
+else
+  echo "[*] IP container $CONTAINER adalah $CONTAINER_IP"
 fi
 
-echo "✅ Semua data dan konfigurasi LXD sudah dibersihkan."
+# Fungsi menambahkan port forwarding
+add_forward() {
+    NAME=$1
+    HOST_PORT=$2
+    CONTAINER_PORT=$3
+    PROTOCOL=${4:-tcp}
+
+    echo "Menambahkan port forward: $NAME ($PROTOCOL $HOST_PORT → $CONTAINER_IP:$CONTAINER_PORT)"
+    lxc config device add "$CONTAINER" "$NAME" proxy \
+        listen=$PROTOCOL:0.0.0.0:$HOST_PORT \
+        connect=$PROTOCOL:$CONTAINER_IP:$CONTAINER_PORT \
+        bind=host || echo "⚠️  $NAME sudah ada, dilewati."
+}
+
+echo "=== Menambahkan semua port forwarding ke container: $CONTAINER ==="
+
+# Web Ports
+add_forward "http" 80 80
+add_forward "https" 443 443
+
+# SSH & SSH over WebSocket
+add_forward "ssh22" 22 22
+add_forward "sshws2082" 2082 2082
+add_forward "sshws2086" 2086 2086
+
+# Xray / VMess / VLESS / Trojan (contoh port populer)
+add_forward "xrayv443" 444 443
+add_forward "xrayv8443" 8443 8443
+add_forward "xrayv8080" 8080 8080
+add_forward "xrayv8880" 8880 80
+
+# Dropbear SSH (umumnya 44 / 143)
+add_forward "dropbear44" 44 44
+add_forward "dropbear143" 143 143
+
+# HAProxy
+add_forward "haproxy8081" 8081 8081
+
+# VPN Ports
+add_forward "sstp" 4443 443
+add_forward "pptp" 1723 1723
+add_forward "l2tp" 1701 1701 udp
+
+# Tambahan umum lainnya
+add_forward "dns53" 53 53 udp
+add_forward "openvpn1194" 1194 1194 udp
+add_forward "squid3128" 3128 3128
+
+echo "✅ Semua port forwarding selesai ditambahkan!"
+
+echo ""
+echo "✅ Selesai! Container '$CONTAINER' siap digunakan."
+echo "➡️ Ketik perintah 'menu' dari terminal manapun untuk masuk ke dalam container."
+echo "🧠 Alias akan aktif untuk semua user saat terminal baru dibuka."
