@@ -23,16 +23,8 @@ echo "[*] Menyiapkan dependensi di dalam container..."
 lxc exec legacy-script-env -- bash -c "
   apt update && apt upgrade -y &&
   apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
-"
-
-echo "[*] (Opsional) Install Xray..."
-lxc exec legacy-script-env -- bash -c "
-  bash <(curl -Ls https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh)
-"
 
 echo ""
 echo "✅ Selesai! Container 'legacy-script-env' siap digunakan."
 echo "➡️ Untuk masuk ke dalam container:"
 echo "   lxc exec legacy-script-env -- bash"
-echo "➡️ Untuk mengupload file ke container:"
-echo "   lxc file push script.sh legacy-script-env/root/"
