@@ -1,7 +1,7 @@
 # install ALL OS UBUNTU 
 
 
-
+1. INSTALL VIRTUAL MACHINE LXD
 ```
 cd root
 rm virtual
@@ -28,6 +28,12 @@ apt install -y && apt update -y && wget -q https://raw.githubusercontent.com/hok
 7. MASUK DENGAN KETIK " virtual "
 8. JALANKAN INSTALLER
 9. SELESAI
+
+  ### MENGHAPUS LXD INSTALL ULANG
+   
+   ```
+   wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/install_ulang_virtual && chmod +x install_ulang_virtual && ./install_ulang_virtual
+   ```
 ## 🚀 ALPHA SCRIPT
 
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
