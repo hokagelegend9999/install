@@ -24,7 +24,6 @@ add_forward "http" 80 80
 add_forward "https" 443 443
 
 # SSH & SSH over WebSocket
-add_forward "ssh22" 22 22
 add_forward "sshws2082" 2082 2082
 add_forward "sshws2086" 2086 2086
 
