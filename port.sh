@@ -46,7 +46,6 @@ add_forward "pptp" 1723 1723
 add_forward "l2tp" 1701 1701 udp
 
 # Tambahan umum lainnya
-add_forward "dns53" 53 53 udp
 add_forward "openvpn1194" 1194 1194 udp
 add_forward "squid3128" 3128 3128
 
