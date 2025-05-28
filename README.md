@@ -15,19 +15,11 @@ lxc exec legacy-script-env -- bash
 ```
 
 1.  INSTALL SCRIPT TERSEBUT SETELAH UPDATE & UPGRADE
-2. MASUK DENGAN "virtual"
+2. MASUK DENGAN "menu"
 3. LALU UPDATE DAN UPGRADE KEMBALI
-4. KELUAR DENGAN " exit "
-5. CEK IP VIRTUAL : " lxc list "
-6. MASUKAN IP LDX PADA PORT FORWARDING
-7. LAKUKAN IP PORT FORWARDING
-
-```
-apt install -y && apt update -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh && chmod +x port.sh && ./port.sh
-```
-7. MASUK DENGAN KETIK " virtual "
-8. JALANKAN INSTALLER
-9. SELESAI
+4.  JALANKAN INSTALLER
+5. KELUAR DENGAN " exit "
+SELESAI
 
   ### MENGHAPUS LXD INSTALL ULANG
    
