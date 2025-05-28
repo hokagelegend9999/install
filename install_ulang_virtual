@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Cek root
+if [ "$(id -u)" -ne 0 ]; then
+  echo "❌ Harap jalankan script ini sebagai root (sudo)"
+  exit 1
+fi
+
+echo "🔥 Menghapus semua container LXD..."
+lxc list --format csv -c n | while read -r container; do
+  if [ -n "$container" ]; then
+    echo "⏳ Menghentikan container: $container"
+    lxc stop "$container" --force
+    echo "🗑️ Menghapus container: $container"
+    lxc delete "$container"
+  fi
+done
+
+echo "🔁 Mereset konfigurasi LXD..."
+lxd init --reset
+
+echo "🧼 Menghapus semua data LXD..."
+systemctl stop snap.lxd.daemon
+
+echo "📦 Menghapus snap LXD..."
+snap remove lxd --purge
+
+echo "🧹 Membersihkan direktori LXD..."
+rm -rf /var/snap/lxd
+rm -rf ~/snap/lxd
+
+echo ""
+echo "✅ Semua data LXD telah dihapus bersih."
+echo "📌 LXD tidak diinstall ulang."
