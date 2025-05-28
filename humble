@@ -212,8 +212,8 @@ function base_package() {
     apt update -y
     apt upgrade -y
     apt dist-upgrade -y
-    systemctl enable chronyd
-    systemctl restart chronyd
+    systemctl enable cron
+    systemctl start cron
     systemctl enable chrony
     systemctl restart chrony
     chronyc sourcestats -v
