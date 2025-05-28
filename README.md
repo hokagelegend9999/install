@@ -15,13 +15,18 @@ lxc exec legacy-script-env -- bash
 ```
 
 1.  INSTALL SCRIPT TERSEBUT SETELAH UPDATE & UPGRADE
-2. MASUK DENGAN "virtual" KELUAR DENGAN " exit "
-3. IP PORT FORWARDING
+2. MASUK DENGAN "virtual"
+3. LALU UPDATE DAN UPGRADE KEMBALI
+4. KELUAR DENGAN " exit "
+5. CEK IP VIRTUAL : " lxc list "
+6. LAKUKAN IP PORT FORWARDING
 
 ```
 apt install -y && apt update -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh && chmod +x port.sh && ./port.sh
 ```
-
+7. MASUK DENGAN KETIK " virtual "
+8. JALANKAN INSTALLER
+9. SELESAI
 ## 🚀 ALPHA SCRIPT
 
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
