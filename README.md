@@ -32,7 +32,11 @@ apt install -y && apt update -y && wget -q https://raw.githubusercontent.com/hok
   ### MENGHAPUS LXD INSTALL ULANG
    
    ```
+cd root
+rm install_ulang_virtual
    wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/install_ulang_virtual && chmod +x install_ulang_virtual && ./install_ulang_virtual
+cd root
+rm install_ulang_virtual
    ```
 ## 🚀 ALPHA SCRIPT
 
