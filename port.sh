@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CONTAINER="legacy-script-env"
-CONTAINER_IP="10.103.208.20"
+CONTAINER_IP="10.104.225.79"
 
 # Fungsi menambahkan forwarding port
 add_forward() {
