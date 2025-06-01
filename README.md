@@ -1,7 +1,8 @@
 # install ALL OS UBUNTU 
 
 
-1. INSTALL VIRTUAL MACHINE LXD
+1. UNTUK UBUNTU 24
+   INSTALL VIRTUAL MACHINE LXD
 ```
 cd root
 rm virtual
