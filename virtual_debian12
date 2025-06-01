@@ -1,20 +1,83 @@
 #!/bin/bash
 
-# Nama container
+set -e
+
 CONTAINER_NAME="legacy-script-env"
+UBUNTU_IMAGE="images:ubuntu/20.04"
 
-# Image Ubuntu yang akan digunakan
-IMAGE="ubuntu:20.04"
+echo "=== Mulai setup LXC di Debian 12 ==="
 
-echo "Membuat container LXC dengan nama: $CONTAINER_NAME menggunakan image $IMAGE"
+# 1. Install LXC
+echo "[1/5] Install LXC dan dependencies..."
+sudo apt update
+sudo apt install -y lxc lxc-templates bridge-utils iptables
 
-# Membuat dan menjalankan container
-lxc launch $IMAGE $CONTAINER_NAME
+# 2. Buat container Ubuntu 20.04 jika belum ada
+if ! lxc list | grep -qw "$CONTAINER_NAME"; then
+  echo "[2/5] Membuat container Ubuntu 20.04 dengan nama $CONTAINER_NAME..."
+  lxc launch $UBUNTU_IMAGE $CONTAINER_NAME
+  echo "Tunggu container booting (30 detik)..."
+  sleep 30
+else
+  echo "[2/5] Container $CONTAINER_NAME sudah ada, skip pembuatan."
+fi
 
-# Cek status container
-echo "Cek status container..."
-lxc list $CONTAINER_NAME
+# 3. Ambil IP container
+CONTAINER_IP=$(lxc list $CONTAINER_NAME -c 4 --format csv | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)
+if [[ -z "$CONTAINER_IP" ]]; then
+  echo "Gagal mendapatkan IP container $CONTAINER_NAME. Pastikan container berjalan."
+  exit 1
+fi
+echo "[3/5] IP container $CONTAINER_NAME adalah: $CONTAINER_IP"
 
-# Jika ingin masuk ke container langsung
-echo "Masuk ke container $CONTAINER_NAME"
-lxc exec $CONTAINER_NAME -- bash
+# 4. Setup port forwarding iptables
+echo "[4/5] Setup port forwarding iptables..."
+
+# Enable IP forwarding
+sudo sysctl -w net.ipv4.ip_forward=1
+
+# Jangan flush iptables supaya aturan lain tetap aman
+
+# Fungsi port forwarding
+forward_tcp_port() {
+  local PORT=$1
+  echo "Forwarding TCP port $PORT ke $CONTAINER_IP:$PORT"
+  sudo iptables -t nat -A PREROUTING -p tcp --dport $PORT -j DNAT --to-destination $CONTAINER_IP:$PORT
+  sudo iptables -A FORWARD -p tcp -d $CONTAINER_IP --dport $PORT -j ACCEPT
+}
+
+forward_udp_port() {
+  local PORT=$1
+  echo "Forwarding UDP port $PORT ke $CONTAINER_IP:$PORT"
+  sudo iptables -t nat -A PREROUTING -p udp --dport $PORT -j DNAT --to-destination $CONTAINER_IP:$PORT
+  sudo iptables -A FORWARD -p udp -d $CONTAINER_IP --dport $PORT -j ACCEPT
+}
+
+# Forward port sesuai permintaan:
+forward_tcp_port 22      # ssh (biasanya ssh)
+forward_tcp_port 443     # sshws, xray, sstp
+forward_tcp_port 80      # xray
+forward_tcp_port 8080    # haproxy
+forward_tcp_port 2222    # dropbear
+forward_udp_port 1701    # l2tp
+forward_tcp_port 1723    # pptp
+# Allow GRE protocol untuk PPTP
+sudo iptables -A FORWARD -p gre -j ACCEPT
+
+echo "[4/5] Port forwarding selesai."
+
+# 5. Buat alias menu masuk container
+echo "[5/5] Membuat alias 'menu' untuk masuk container $CONTAINER_NAME..."
+
+ALIAS_LINE="alias menu='lxc exec $CONTAINER_NAME -- bash'"
+
+if grep -Fxq "$ALIAS_LINE" ~/.bashrc; then
+  echo "Alias 'menu' sudah ada di ~/.bashrc"
+else
+  echo "$ALIAS_LINE" >> ~/.bashrc
+  echo "Alias 'menu' berhasil ditambahkan ke ~/.bashrc"
+fi
+
+echo "Selesai. Silakan jalankan perintah 'source ~/.bashrc' untuk mengaktifkan alias."
+echo "Kemudian cukup ketik 'menu' untuk masuk ke container."
+
