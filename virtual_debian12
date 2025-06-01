@@ -1,49 +1,57 @@
 #!/bin/bash
 
-# Cek apakah sudah root
+# === CEK HAK AKSES ROOT ===
 if [ "$(id -u)" -ne 0 ]; then
   echo "❌ Harap jalankan script ini sebagai root (sudo)"
   exit 1
 fi
 
-# === KONFIGURASI ===
+# === KONFIGURASI DASAR ===
 CONTAINER="legacy-script-env"
-CONTAINER_IMAGE=${1:-"ubuntu:20.04"}  # Bisa juga: debian:12
+CONTAINER_IMAGE=${1:-"ubuntu/20.04"}  # Bisa diganti jadi debian/12 misalnya
 
 echo "[*] Menggunakan image container: $CONTAINER_IMAGE"
 
-echo "[*] Update & install Snap (jika belum)..."
-apt update && apt install -y snapd
+# === CEK LXD TERINSTAL ===
+if ! command -v lxc >/dev/null 2>&1; then
+  echo "[*] LXD belum terinstal. Menginstal dari APT..."
 
-echo "[*] Aktifkan Snap daemon..."
-systemctl enable --now snapd
-sleep 5
+  apt update
+  apt install -y gnupg2 curl lsb-release
 
-echo "[*] Install LXD via Snap jika belum ada..."
-if ! snap list | grep -q lxd; then
-  snap install lxd
+  curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --dearmor -o /usr/share/keyrings/zabbly-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/zabbly-archive-keyring.gpg] https://pkgs.zabbly.com/lxd $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/lxd.list
+
+  apt update
+  apt install -y lxd
 fi
 
-echo "[*] Tambahkan user '$SUDO_USER' ke grup lxd..."
-usermod -aG lxd "$SUDO_USER"
-
-echo "[*] Inisialisasi LXD (otomatis, jika belum)..."
+# === INISIALISASI LXD ===
+echo "[*] Inisialisasi LXD jika belum ada..."
 lxd waitready
 lxd init --auto
 
-echo "[*] Membuat container '$CONTAINER' dengan image '$CONTAINER_IMAGE'..."
-lxc launch images:"$CONTAINER_IMAGE" "$CONTAINER"
+# === CEK APAKAH CONTAINER SUDAH ADA ===
+if lxc list "$CONTAINER" >/dev/null 2>&1; then
+  echo "⚠️ Container '$CONTAINER' sudah ada. Lewati pembuatan."
+else
+  echo "[*] Membuat container '$CONTAINER'..."
+  lxc launch images:"$CONTAINER_IMAGE" "$CONTAINER"
+fi
 
+# === TUNGGU CONTAINER SIAP ===
 echo "[*] Menunggu container aktif..."
 sleep 10
 
-echo "[*] Menyiapkan dependensi di dalam container..."
+# === INSTALL DEPENDENSI DI DALAM CONTAINER ===
+echo "[*] Instalasi software dalam container..."
 lxc exec "$CONTAINER" -- bash -c "
   apt update && apt upgrade -y &&
   apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
 "
 
-echo "[*] Menambahkan auto-run 'menu' ke dalam /root/.bashrc container..."
+# === AUTO RUN MENU ===
+echo "[*] Menambahkan auto-run menu dalam container..."
 lxc exec "$CONTAINER" -- bash -c "
 cat >> /root/.bashrc <<'EOF'
 
@@ -54,7 +62,7 @@ fi
 EOF
 "
 
-echo "[*] Menambahkan alias global 'menu'..."
+# === ALIAS GLOBAL MENU ===
 if ! grep -q "alias menu=" /etc/bash.bashrc; then
   echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
   echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
@@ -62,6 +70,7 @@ else
   echo "ℹ️ Alias 'menu' sudah ada di /etc/bash.bashrc"
 fi
 
+# === AMBIL IP CONTAINER ===
 echo "[*] Mengambil IP container..."
 sleep 5
 CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -oP '\d+\.\d+\.\d+\.\d+')
@@ -72,6 +81,7 @@ else
   echo "[*] IP container $CONTAINER adalah $CONTAINER_IP"
 fi
 
+# === AMBIL SCRIPT PORT FORWARDING ===
 echo "[*] Mengunduh dan menjalankan script port forwarding..."
 curl -fsSL https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh -o /tmp/port.sh
 
@@ -85,7 +95,8 @@ export CONTAINER="$CONTAINER"
 export CONTAINER_IP="$CONTAINER_IP"
 bash /tmp/port.sh
 
+# === SELESAI ===
 echo ""
 echo "✅ Selesai! Container '$CONTAINER' siap digunakan."
 echo "➡️ Ketik perintah 'menu' dari terminal manapun untuk masuk ke dalam container."
-echo "🧠 Logout & login ulang agar grup 'lxd' aktif."
+echo "🧠 Logout & login ulang agar grup lxd aktif (jika kamu baru menginstalnya)."
