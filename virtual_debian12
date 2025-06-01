@@ -6,26 +6,33 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# === KONFIGURASI ===
+CONTAINER="legacy-script-env"
+CONTAINER_IMAGE=${1:-"ubuntu:20.04"}  # Bisa juga: debian:12
+
+echo "[*] Menggunakan image container: $CONTAINER_IMAGE"
+
 echo "[*] Update & install Snap (jika belum)..."
 apt update && apt install -y snapd
 
-echo "[*] Install LXD via Snap..."
-snap install lxd
-
-echo "[*] Tambahkan user ke grup lxd..."
-usermod -aG lxd "$SUDO_USER"
-
-echo "[*] Aktifkan layanan snapd & tunggu beberapa detik..."
+echo "[*] Aktifkan Snap daemon..."
 systemctl enable --now snapd
 sleep 5
 
-echo "[*] Inisialisasi LXD dengan profil default..."
+echo "[*] Install LXD via Snap jika belum ada..."
+if ! snap list | grep -q lxd; then
+  snap install lxd
+fi
+
+echo "[*] Tambahkan user '$SUDO_USER' ke grup lxd..."
+usermod -aG lxd "$SUDO_USER"
+
+echo "[*] Inisialisasi LXD (otomatis, jika belum)..."
+lxd waitready
 lxd init --auto
 
-CONTAINER="legacy-script-env"
-
-echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
-lxc launch images:ubuntu/20.04 "$CONTAINER"
+echo "[*] Membuat container '$CONTAINER' dengan image '$CONTAINER_IMAGE'..."
+lxc launch images:"$CONTAINER_IMAGE" "$CONTAINER"
 
 echo "[*] Menunggu container aktif..."
 sleep 10
@@ -48,7 +55,6 @@ EOF
 "
 
 echo "[*] Menambahkan alias global 'menu'..."
-
 if ! grep -q "alias menu=" /etc/bash.bashrc; then
   echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
   echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
