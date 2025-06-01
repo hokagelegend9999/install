@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# Cek apakah sudah root
+if [ "$(id -u)" -ne 0 ]; then
+  echo "❌ Harap jalankan script ini sebagai root (sudo)"
+  exit 1
+fi
+
+echo "[*] Update & install Snap (jika belum)..."
+apt update && apt install -y snapd
+
+echo "[*] Install LXD via Snap..."
+snap install lxd
+
+echo "[*] Tambahkan user ke grup lxd..."
+usermod -aG lxd "$SUDO_USER"
+
+echo "[*] Aktifkan layanan snapd & tunggu beberapa detik..."
+systemctl enable --now snapd
+sleep 5
+
+echo "[*] Inisialisasi LXD dengan profil default..."
+lxd init --auto
+
+CONTAINER="legacy-script-env"
+
+echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
+lxc launch images:ubuntu/20.04 "$CONTAINER"
+
+echo "[*] Menunggu container aktif..."
+sleep 10
+
+echo "[*] Menyiapkan dependensi di dalam container..."
+lxc exec "$CONTAINER" -- bash -c "
+  apt update && apt upgrade -y &&
+  apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
+"
+
+echo "[*] Menambahkan auto-run 'menu' ke dalam /root/.bashrc container..."
+lxc exec "$CONTAINER" -- bash -c "
+cat >> /root/.bashrc <<'EOF'
+
+# Auto-run menu jika file ada dan executable
+if [ -x /usr/local/sbin/menu ]; then
+  /usr/local/sbin/menu
+fi
+EOF
+"
+
+echo "[*] Menambahkan alias global 'menu'..."
+
+if ! grep -q "alias menu=" /etc/bash.bashrc; then
+  echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
+  echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
+else
+  echo "ℹ️ Alias 'menu' sudah ada di /etc/bash.bashrc"
+fi
+
+echo "[*] Mengambil IP container..."
+sleep 5
+CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -oP '\d+\.\d+\.\d+\.\d+')
+
+if [ -z "$CONTAINER_IP" ]; then
+  echo "⚠️ Gagal mendapatkan IP container $CONTAINER"
+else
+  echo "[*] IP container $CONTAINER adalah $CONTAINER_IP"
+fi
+
+echo "[*] Mengunduh dan menjalankan script port forwarding..."
+curl -fsSL https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh -o /tmp/port.sh
+
+if [ ! -f /tmp/port.sh ]; then
+  echo "❌ Gagal mengunduh port forwarding script!"
+  exit 1
+fi
+
+chmod +x /tmp/port.sh
+export CONTAINER="$CONTAINER"
+export CONTAINER_IP="$CONTAINER_IP"
+bash /tmp/port.sh
+
+echo ""
+echo "✅ Selesai! Container '$CONTAINER' siap digunakan."
+echo "➡️ Ketik perintah 'menu' dari terminal manapun untuk masuk ke dalam container."
+echo "🧠 Logout & login ulang agar grup 'lxd' aktif."
