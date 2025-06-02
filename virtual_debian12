@@ -1,41 +1,72 @@
 #!/bin/bash
 # ================================================
-# AUTO INSTALL LXD + UBUNTU 20.04 CONTAINER
+# AUTO RESET & INSTALL LXD + UBUNTU 20.04 CONTAINER
 # DEBIAN 12 COMPATIBLE
 # ================================================
 
-# Hentikan script jika ada error
-set -e
+# --- [1] HAPUS INSTALASI SEBELUMNYA ---
+echo "🧹 MEMBERSIHKAN INSTALASI LAMA..."
+sudo systemctl stop snap.lxd.daemon 2>/dev/null
+sudo snap remove --purge lxd 2>/dev/null
+sudo apt remove -y --purge docker-ce docker-ce-cli containerd.io 2>/dev/null
+sudo rm -rf /var/lib/docker /etc/docker /var/snap/lxd /var/lib/lxd
+sudo rm -f /usr/local/bin/menu 2>/dev/null
+sudo apt autoremove -y
 
-# --- [1] INSTALL LXD ---
+# --- [2] INSTALL LXD ---
 echo "🛠  INSTALLING LXD..."
 sudo apt update
 sudo apt install -y snapd
 sudo snap install lxd --channel=5.0/stable
 
-# Inisialisasi LXD (non-interactive)
-echo "🔧 Initializing LXD..."
-sudo lxd init --auto --storage-backend=dir --network-address=0.0.0.0 --network-port=8443 --trust-password=password
+# --- [3] INISIALISASI LXD ---
+echo "🔧 INITIALIZING LXD..."
+cat <<EOF | sudo lxd init --preseed
+config:
+  core.https_address: '[::]:8443'
+  core.trust_password: "password"
+storage_pools:
+- name: default
+  driver: dir
+networks:
+- name: lxdbr0
+  type: bridge
+  config:
+    ipv4.address: auto
+    ipv6.address: none
+profiles:
+- name: default
+  devices:
+    root:
+      path: /
+      pool: default
+      type: disk
+    eth0:
+      name: eth0
+      network: lxdbr0
+      type: nic
+EOF
 
-# Tambahkan user ke grup lxd
+# --- [4] KONFIGURASI USER ---
+echo "👤 SETUP USER..."
 sudo usermod -aG lxd $USER
 newgrp lxd <<EONG
-echo "🐳 LXD ready: $(lxc --version)"
+echo "🐳 LXD Version: $(lxc --version)"
 EONG
 
-# --- [2] BUAT CONTAINER UBUNTU 20.04 ---
-echo "🛠  Creating Ubuntu 20.04 container..."
-lxc launch ubuntu:20.04 ubuntu20
+# --- [5] BUAT CONTAINER ---
+echo "🚀 CREATING UBUNTU 20.04 CONTAINER..."
+lxc launch ubuntu:20.04 ubuntu20 -p default
 
-# --- [3] KONFIGURASI DASAR ---
-echo "⚙️  Basic container setup..."
+# --- [6] KONFIGURASI DASAR ---
+echo "⚙️ BASIC CONTAINER SETUP..."
 lxc exec ubuntu20 -- bash -c "echo -e 'nameserver 8.8.8.8\nnameserver 1.1.1.1' > /etc/resolv.conf"
 lxc exec ubuntu20 -- apt update
 lxc exec ubuntu20 -- apt upgrade -y
-lxc exec ubuntu20 -- apt install -y sudo curl wget nano net-tools
+lxc exec ubuntu20 -- apt install -y sudo curl wget nano net-tools openssh-server
 
-# --- [4] PORT FORWARDING ---
-echo "🔌 Setting up port forwarding..."
+# --- [7] PORT FORWARDING ---
+echo "🔌 SETUP PORT FORWARDING..."
 lxc profile create tunnel 2>/dev/null || true
 
 # SSH & Dropbear
@@ -55,32 +86,36 @@ lxc profile device add tunnel l2tp3 proxy listen=udp:0.0.0.0:4500 connect=udp:12
 
 lxc profile add ubuntu20 tunnel
 
-# --- [5] BUAT USER ADMIN ---
-echo "👤 Creating admin user..."
+# --- [8] BUAT USER ADMIN ---
+echo "👤 CREATING ADMIN USER..."
 lxc exec ubuntu20 -- bash -c "useradd -m -s /bin/bash admin && echo 'admin:password' | chpasswd && usermod -aG sudo admin"
 
-# --- [6] BUAT SHORTCUT 'menu' ---
-echo "🔧 Creating 'menu' shortcut..."
+# --- [9] SHORTCUT 'menu' ---
+echo "🔧 CREATING 'menu' SHORTCUT..."
 sudo tee /usr/local/bin/menu > /dev/null <<'EOF'
 #!/bin/bash
 clear
 echo "🖥  Connecting to Ubuntu 20.04 container..."
-echo "🔑 Use password 'password' for admin user"
+echo "🔑 Default credentials: admin/password"
 lxc exec ubuntu20 -- sudo --login --user admin
 EOF
-
 sudo chmod +x /usr/local/bin/menu
 
-# --- [7] SELESAI ---
+# --- [10] FIREWALL RULES ---
+echo "🔥 SETTING UP FIREWALL..."
+
+
+# --- [11] SELESAI ---
 cat <<EOF
 
 ✅ INSTALASI SELESAI!
 
-🔹 Akses container:
+🔹 Akses Container:
    - CLI: ketik 'menu'
-   - SSH: ssh admin@[IP-HOST] -p 22 (password: password)
+   - SSH: ssh admin@$(hostname -I | awk '{print $1}') -p 22
+   Password: password
 
-🔹 Port yang tersedia:
+🔹 Port Forwarding:
    - SSH: 22, 222
    - Websocket: 80, 443
    - SSTP: 5555
@@ -88,8 +123,7 @@ cat <<EOF
    - L2TP: 1701/udp, 500/udp, 4500/udp
 
 🔥 Tips:
-- Untuk install service di container:
-  1. Ketik 'menu' untuk masuk
-  2. Install paket yang dibutuhkan:
-     sudo apt install -y nginx dropbear xray
+- Ganti password default: passwd admin
+- Install service tambahan:
+  sudo apt install -y nginx dropbear xray
 EOF
