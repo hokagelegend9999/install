@@ -1,39 +1,61 @@
 #!/bin/bash
+# ================================================
+# CLEANUP PREVIOUS INSTALLATION (LXD/DOCKER)
+# DEBIAN 12 COMPATIBLE
+# ================================================
 
-if [ "$(id -u)" -ne 0 ]; then
-  echo "❌ Jalankan sebagai root (sudo)"
-  exit 1
-fi
+# --- [1] HENTIKAN SEMUA CONTAINER ---
+echo "🛑 Menghentikan container yang aktif..."
+sudo lxc list --format csv -c n | xargs -I {} sudo lxc stop {} 2>/dev/null || true
+sudo docker ps -aq | xargs -I {} sudo docker stop {} 2>/dev/null || true
 
-echo "🔥 Menghapus semua container LXD jika ada..."
+# --- [2] HAPUS CONTAINER ---
+echo "🗑️ Menghapus container LXD..."
+sudo lxc list --format csv -c n | xargs -I {} sudo lxc delete {} --force 2>/dev/null || true
 
-if command -v lxc >/dev/null 2>&1; then
-  containers=$(lxc list --format csv -c n | grep -v -E '^$|Installing|pending|Stopping|Starting')
+# --- [3] HAPUS DOCKER ---
+echo "🧹 Membersihkan instalasi Docker..."
+sudo apt remove -y --purge docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true
+sudo rm -rf /var/lib/docker /etc/docker
 
-  for container in $containers; do
-    echo "⏳ Menghentikan container: $container"
-    lxc stop "$container" --force || echo "⚠️ Gagal menghentikan $container, lanjut..."
-    echo "🗑️ Menghapus container: $container"
-    lxc delete "$container" || echo "⚠️ Gagal menghapus $container, lanjut..."
-  done
-else
-  echo "ℹ️ LXC tidak ditemukan, melewati penghapusan container"
-fi
+# --- [4] HAPUS LXD ---
+echo "🧹 Membersihkan instalasi LXD..."
+sudo snap remove --purge lxd 2>/dev/null || true
+sudo rm -rf /var/snap/lxd /var/lib/lxd
 
-echo "🛑 Mematikan layanan dan socket LXD..."
-systemctl stop snap.lxd.daemon.service snap.lxd.daemon.unix.socket 2>/dev/null
-systemctl disable snap.lxd.daemon.service snap.lxd.daemon.unix.socket 2>/dev/null
+# --- [5] HAPUS PROFIL & NETWORK ---
+echo "🧽 Membersihkan profil LXD..."
+sudo rm -rf /var/lib/lxd/storage-pools/default/containers/* 2>/dev/null || true
+sudo lxc profile delete tunnel 2>/dev/null || true
+sudo lxc network delete lxdbr0 2>/dev/null || true
 
-echo "📦 Menghapus snap LXD..."
-snap remove lxd --purge 2>/dev/null || echo "ℹ️ Snap LXD tidak terpasang"
+# --- [6] HAPUS SHORTCUT ---
+echo "🔧 Menghapus shortcut menu..."
+sudo rm -f /usr/local/bin/menu 2>/dev/null || true
 
-echo "🧹 Membersihkan direktori data LXD..."
-rm -rf /var/snap/lxd ~/snap/lxd
+# --- [7] HAPUS DEPENDENSI TIDAK TERPAKAI ---
+echo "🧹 Membersihkan paket tidak terpakai..."
+sudo apt autoremove -y
+sudo apt autoclean
 
-# Hapus alias 'menu' dari /etc/bash.bashrc jika ada
-if grep -q "^alias menu=" /etc/bash.bashrc; then
-  sed -i '/^alias menu=/d' /etc/bash.bashrc
-  echo "🧹 Alias 'menu' dihapus dari /etc/bash.bashrc"
-fi
+# --- [8] RESET KONFIGURASI ---
+echo "🔄 Mereset konfigurasi jaringan..."
+sudo systemctl restart systemd-networkd
 
-echo "✅ Semua data dan konfigurasi LXD sudah dibersihkan."
+# --- [9] SELESAI ---
+cat <<EOF
+
+✅ PEMBERSIHAN SELESAI!
+
+Sistem sekarang bersih dari:
+- Semua container LXD
+- Instalasi Docker
+- Konfigurasi jaringan LXD
+- File residual
+
+Langkah berikutnya:
+1. Jalankan installer baru
+2. Setup ulang container
+
+🔥 Tips: Backup konfigurasi penting sebelum membersihkan!
+EOF
