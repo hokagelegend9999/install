@@ -1,82 +1,84 @@
 #!/bin/bash
 
-# --- 1. Install LXC dan dependencies ---
-echo "=== Install LXC dan dependencies ==="
-apt update
-apt install -y lxc lxc-templates bridge-utils iptables
+# ====================================================
+# AUTO-INSTALL DOCKER + UBUNTU CONTAINER + MENU ACCESS
+# DEBIAN 12 COMPATIBLE
+# ====================================================
 
-# --- 2. Buat container Ubuntu 20.04 ---
-CONTAINER_NAME="legacy-script-env"
-UBUNTU_RELEASE="focal"   # Ubuntu 20.04 codename
+# Hentikan script jika ada error
+set -e
 
-echo "=== Membuat container Ubuntu 20.04 dengan nama $CONTAINER_NAME ==="
-if lxc-info -n $CONTAINER_NAME &>/dev/null; then
-  echo "Container $CONTAINER_NAME sudah ada, tidak dibuat ulang."
-else
-  lxc-create -n $CONTAINER_NAME -t download -- -d ubuntu -r $UBUNTU_RELEASE -a amd64
-  echo "Container $CONTAINER_NAME dibuat."
-fi
+# --- [1] INSTALL DOCKER ---
+echo "🛠  INSTALLING DOCKER..."
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
 
-# --- 3. Start container ---
-echo "=== Memulai container $CONTAINER_NAME ==="
-lxc-start -n $CONTAINER_NAME
-sleep 5
-lxc-info -n $CONTAINER_NAME
+# Tambahkan repo Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# --- 4. Ambil IP container ---
-CONTAINER_IP=$(lxc-info -n $CONTAINER_NAME -iH)
-if [ -z "$CONTAINER_IP" ]; then
-  echo "Gagal mendapatkan IP container. Pastikan container sudah running."
-  exit 1
-fi
-echo "IP container $CONTAINER_NAME = $CONTAINER_IP"
+# Install Docker
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# --- 5. Aktifkan IP forwarding ---
-echo "=== Mengaktifkan IP forwarding ==="
-sysctl -w net.ipv4.ip_forward=1
+# Tambahkan user ke grup docker
+sudo usermod -aG docker $USER
+newgrp docker <<EONG
+echo "🐳 Docker siap! Versi: $(docker --version)"
+EONG
 
-# --- 6. Setup port forwarding dengan iptables ---
-echo "=== Setup port forwarding ke $CONTAINER_IP ==="
+# --- [2] BUAT CONTAINER ---
+echo "🛠  MEMBUAT CONTAINER UBUNTU 20.04..."
+docker run -d \
+  --name ubuntu20 \
+  -p 80:80 \
+  -p 443:443 \
+  -p 2222:22 \
+  -p 3306:3306 \
+  -p 5432:5432 \
+  -p 8000-8010:8000-8010 \
+  ubuntu:20.04 \
+  sleep infinity
 
-# Fungsi untuk buat forwarding port
-port_forward() {
-  local PORT=$1
-  local PROTO=$2
-  echo "Forwarding $PROTO port $PORT ke $CONTAINER_IP:$PORT"
-  iptables -t nat -A PREROUTING -p $PROTO --dport $PORT -j DNAT --to-destination $CONTAINER_IP:$PORT
-  iptables -A FORWARD -p $PROTO -d $CONTAINER_IP --dport $PORT -j ACCEPT
-}
+# --- [3] SETUP CONTAINER ---
+echo "⚙️  SETUP DASAR CONTAINER..."
+docker exec ubuntu20 apt update
+docker exec ubuntu20 apt install -y sudo curl nano bash
 
-# Clear aturan lama
-iptables -t nat -F PREROUTING
-iptables -t nat -F POSTROUTING
-iptables -F FORWARD
-
-# Port forwarding list
-port_forward 22 tcp         # SSH
-port_forward 8080 tcp       # WebSocket Xray (contoh)
-port_forward 443 tcp        # Dropbear (contoh)
-port_forward 4433 tcp       # SSTP VPN
-port_forward 1723 tcp       # PPTP VPN
-port_forward 1701 udp       # L2TP VPN
-port_forward 6443 tcp       # HAProxy (contoh)
-
-# Atur masquerade agar koneksi balik lancar
-iptables -t nat -A POSTROUTING -s $CONTAINER_IP -j MASQUERADE
-
-echo "Port forwarding selesai."
-
-# --- 7. Buat menu masuk container ---
-MENU_SCRIPT="/usr/local/bin/menu"
-
-echo "=== Membuat perintah 'menu' untuk masuk container ==="
-cat <<EOF > $MENU_SCRIPT
+# --- [4] BUAT SHORTCUT 'menu' ---
+echo "🔧 MEMBUAT PERINTAH 'menu'..."
+sudo tee /usr/local/bin/menu > /dev/null <<'EOF'
 #!/bin/bash
-lxc-attach -n $CONTAINER_NAME
+CONTAINER_NAME="ubuntu20"
+if ! docker ps | grep -q $CONTAINER_NAME; then
+  echo "🚀 Starting container..."
+  docker start $CONTAINER_NAME > /dev/null
+fi
+docker exec -it $CONTAINER_NAME bash
 EOF
 
-chmod +x $MENU_SCRIPT
+sudo chmod +x /usr/local/bin/menu
 
-echo "Sekarang kamu bisa masuk container dengan perintah: menu"
+# --- [5] SELESAI ---
+cat <<EOF
 
-echo "Setup selesai."
+✅ SCRIPT SELESAI DIJALANKAN!
+
+Fitur yang telah diaktifkan:
+1. Docker terinstall ($(docker --version | cut -d' ' -f3-))
+2. Container 'ubuntu20' berjalan
+3. Port yang diforward:
+   - HTTP:80, HTTPS:443
+   - SSH:2222 (akses dengan 'ssh -p 2222 user@host')
+   - Database: 3306 (MySQL), 5432 (PostgreSQL)
+   - Aplikasi: 8000-8010
+4. Akses cepat: ketik 'menu' untuk masuk container
+
+🔥 TIPS:
+- Tambahkan user di container: 
+  'sudo useradd -m -s /bin/bash username'
+- Install aplikasi di container: 
+  'sudo apt install -y apache2 mysql-server'
+EOF
