@@ -1,52 +1,75 @@
 #!/bin/bash
+# ================================================
+# PORT FORWARDING UNTUK:
+# - SSH (22, 222, 444)
+# - Dropbear (443, 445)
+# - Websocket/Xray (80, 443, 8080)
+# - HAProxy (80, 443)
+# - SSTP (5555)
+# - PPTP (1723)
+# - L2TP (1701, 500, 4500)
+# ================================================
 
-CONTAINER="legacy-script-env"
-CONTAINER_IP="10.104.225.79"
+# Hentikan script jika ada error
+set -e
 
-# Fungsi menambahkan forwarding port
-add_forward() {
-    NAME=$1
-    HOST_PORT=$2
-    CONTAINER_PORT=$3
-    PROTOCOL=${4:-tcp}
+# --- [1] Buat profile khusus ---
+lxc profile create tunneling 2>/dev/null || true
 
-    echo "Menambahkan port forward: $NAME ($PROTOCOL $HOST_PORT → $CONTAINER_IP:$CONTAINER_PORT)"
-    lxc config device add "$CONTAINER" "$NAME" proxy \
-        listen=$PROTOCOL:0.0.0.0:$HOST_PORT \
-        connect=$PROTOCOL:$CONTAINER_IP:$CONTAINER_PORT \
-        bind=host || echo "⚠️  $NAME sudah ada, dilewati."
-}
+# --- [2] SSH ---
+echo "🔹 Forwarding port SSH..."
+lxc profile device add tunneling ssh1 proxy listen=tcp:0.0.0.0:22 connect=tcp:127.0.0.1:22
+lxc profile device add tunneling ssh2 proxy listen=tcp:0.0.0.0:222 connect=tcp:127.0.0.1:222
+lxc profile device add tunneling ssh3 proxy listen=tcp:0.0.0.0:444 connect=tcp:127.0.0.1:444
 
-echo "=== Menambahkan semua port forwarding ke container: $CONTAINER ==="
+# --- [3] Dropbear ---
+echo "🔹 Forwarding port Dropbear..."
+lxc profile device add tunneling dropbear1 proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
+lxc profile device add tunneling dropbear2 proxy listen=tcp:0.0.0.0:445 connect=tcp:127.0.0.1:445
 
-# Web Ports
-add_forward "http" 80 80
-add_forward "https" 443 443
+# --- [4] Websocket/Xray ---
+echo "🔹 Forwarding port Websocket/Xray..."
+lxc profile device add tunneling ws1 proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
+lxc profile device add tunneling ws2 proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
+lxc profile device add tunneling ws3 proxy listen=tcp:0.0.0.0:8080 connect=tcp:127.0.0.1:8080
 
-# SSH & SSH over WebSocket
-add_forward "sshws2082" 2082 2082
-add_forward "sshws2086" 2086 2086
+# --- [5] HAProxy ---
+echo "🔹 Forwarding port HAProxy..."
+lxc profile device add tunneling haproxy1 proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
+lxc profile device add tunneling haproxy2 proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
 
-# Xray / VMess / VLESS / Trojan (contoh port populer)
-add_forward "xrayv443" 444 443
-add_forward "xrayv8443" 8443 8443
-add_forward "xrayv8080" 8080 8080
-add_forward "xrayv8880" 8880 80
+# --- [6] SSTP ---
+echo "🔹 Forwarding port SSTP..."
+lxc profile device add tunneling sstp proxy listen=tcp:0.0.0.0:5555 connect=tcp:127.0.0.1:5555
 
-# Dropbear SSH (umumnya 44 / 143)
-add_forward "dropbear44" 44 44
-add_forward "dropbear143" 143 143
+# --- [7] PPTP ---
+echo "🔹 Forwarding port PPTP..."
+lxc profile device add tunneling pptp proxy listen=tcp:0.0.0.0:1723 connect=tcp:127.0.0.1:1723
 
-# HAProxy
-add_forward "haproxy8081" 8081 8081
+# --- [8] L2TP ---
+echo "🔹 Forwarding port L2TP..."
+lxc profile device add tunneling l2tp1 proxy listen=udp:0.0.0.0:1701 connect=udp:127.0.0.1:1701
+lxc profile device add tunneling l2tp2 proxy listen=udp:0.0.0.0:500 connect=udp:127.0.0.1:500
+lxc profile device add tunneling l2tp3 proxy listen=udp:0.0.0.0:4500 connect=udp:127.0.0.1:4500
 
-# VPN Ports
-add_forward "sstp" 4443 443
-add_forward "pptp" 1723 1723
-add_forward "l2tp" 1701 1701 udp
+# --- [9] Terapkan ke container ---
+lxc profile add ubuntu20 tunneling
 
-# Tambahan umum lainnya
-add_forward "openvpn1194" 1194 1194 udp
-add_forward "squid3128" 3128 3128
+# --- [10] Selesai ---
+cat <<EOF
 
-echo "✅ Semua port forwarding selesai ditambahkan!"
+✅ PORT FORWARDING BERHASIL DIBUAT!
+
+🔹 SSH: 22, 222, 444
+🔹 Dropbear: 443, 445
+🔹 Websocket/Xray: 80, 443, 8080
+🔹 HAProxy: 80, 443
+🔹 SSTP: 5555
+🔹 PPTP: 1723
+🔹 L2TP: 1701/udp, 500/udp, 4500/udp
+
+🔥 Tips:
+- Untuk cek port yang aktif:
+  lxc config device show ubuntu20
+- Jika ada konflik port, edit script dan sesuaikan
+EOF
