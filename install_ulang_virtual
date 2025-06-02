@@ -1,49 +1,80 @@
 #!/bin/bash
 
-echo "🧹 Memulai proses penghapusan total LXD..."
+# Script Uninstall LXD Total
+# Hapus semua komponen LXD termasuk data, konfigurasi, dan sisa-sisa file
+# Harap dijalankan dengan sudo atau sebagai root
 
-# --- 1. Stop dan hapus semua container LXD ---
-echo "🛑 Menghentikan dan menghapus container LXD (jika ada)..."
-if command -v lxc >/dev/null 2>&1; then
-    sudo lxc list --format csv -c n | xargs -r -I {} sudo lxc stop {} --force 2>/dev/null || true
-    sudo lxc list --format csv -c n | xargs -r -I {} sudo lxc delete {} --force 2>/dev/null || true
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Script harus dijalankan sebagai root, gunakan sudo!"
+    exit 1
 fi
 
-# --- 2. Stop service LXD Snap ---
-if systemctl list-units --type=service | grep -q snap.lxd.daemon; then
-    echo "⏹️ Menghentikan service LXD snap..."
-    sudo systemctl stop snap.lxd.daemon
-fi
+echo -e "\n[1/7] Menghentikan layanan LXD..."
+{
+    systemctl stop snap.lxd.daemon 2>/dev/null
+    systemctl stop lxd.service 2>/dev/null
+    systemctl disable lxd.service 2>/dev/null
+    pkill -9 -f lxd
+} > /dev/null 2>&1
 
-# --- 3. Unmount mount points di /var/lib/lxd ---
-echo "📂 Memeriksa dan melepaskan mount di /var/lib/lxd..."
-mountpoints=$(mount | grep '/var/lib/lxd' | awk '{print $3}' | sort -r)
-for mnt in $mountpoints; do
-    echo "📤 Unmount $mnt"
-    sudo umount -lf "$mnt" || true
-done
+echo "[2/7] Menghapus instalasi LXD..."
+{
+    # Hapus versi snap
+    if snap list lxd >/dev/null 2>&1; then
+        snap remove --purge lxd
+    fi
 
-# --- 4. Remove Snap LXD ---
-if snap list | grep -q '^lxd'; then
-    echo "❌ Menghapus LXD Snap..."
-    sudo snap remove --purge lxd || true
-fi
+    # Hapus versi apt
+    if dpkg -l lxd >/dev/null 2>&1 || dpkg -l lxd-client >/dev/null 2>&1; then
+        apt-get remove --purge -y lxd lxd-client
+    fi
+} > /dev/null 2>&1
 
-# --- 5. Remove APT LXD & dependencies ---
-echo "❌ Menghapus paket LXD APT dan terkait..."
-sudo apt purge -y lxd lxd-client lxcfs lxc-common lxc1 || true
-sudo apt autoremove -y
-sudo apt autoclean -y
+echo "[3/7] Membersihkan data dan konfigurasi..."
+{
+    rm -rf /var/lib/lxd
+    rm -rf /var/snap/lxd
+    rm -rf /var/lxd
+    rm -rf /etc/lxd
+    rm -f /etc/subuid
+    rm -f /etc/subgid
+} > /dev/null 2>&1
 
-# --- 6. Hapus folder konfigurasi dan data ---
-echo "🗑️ Menghapus folder konfigurasi dan data LXD..."
-sudo rm -rf /var/lib/lxd /var/snap/lxd /etc/lxd /var/log/lxd || true
+echo "[4/7] Menghapus container residual..."
+{
+    rm -rf /var/lib/containerd
+    rm -rf /var/cache/lxd
+    rm -rf /root/snap/lxd
+    rm -rf /home/*/snap/lxd
+} > /dev/null 2>&1
 
-# --- 7. Restart systemd dan network (optional) ---
-echo "🔄 Merestart systemd dan konfigurasi network..."
-sudo systemctl daemon-reload
-sudo systemctl restart systemd-networkd || true
+echo "[5/7] Membersihkan file konfigurasi shell..."
+{
+    # Hapus alias dari bashrc global
+    sed -i '/alias menu=/d' /etc/bash.bashrc
+    sed -i '/alias menu=/d' /etc/profile.d/*
 
-echo ""
-echo "✅ Proses pembersihan LXD selesai."
-echo "Silakan reboot sistem untuk memastikan semua bersih."
+    # Hapus dari bashrc user
+    for user_home in /home/* /root; do
+        if [ -f "$user_home/.bashrc" ]; then
+            sed -i '/alias menu=/d' "$user_home/.bashrc"
+        fi
+    done
+} > /dev/null 2>&1
+
+echo "[6/7] Membersihkan cron jobs terkait..."
+{
+    # Hapus cron jobs yang terkait LXD
+    crontab -l | grep -v 'lxd' | crontab -
+    rm -f /etc/cron.d/*lxd*
+} > /dev/null 2>&1
+
+echo "[7/7] Memperbaiki database paket..."
+{
+    apt-get autoremove -y
+    apt-get autoclean -y
+    rm -rf /var/lib/apt/lists/*
+} > /dev/null 2>&1
+
+echo -e "\n✅ Uninstall berhasil! LXD telah dihapus sepenuhnya."
+echo "Disarankan untuk reboot sistem: sudo reboot"
