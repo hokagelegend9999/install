@@ -1,6 +1,7 @@
 #!/bin/bash
 # ================================================
 # AUTO PORT FORWARDING SCRIPT FOR LXC CONTAINER
+# (WITH EXISTING DEVICE HANDLING)
 # ================================================
 
 # Hentikan script jika ada error
@@ -22,7 +23,7 @@ echo "Nama: $CONTAINER_NAME"
 echo "IP: $CONTAINER_IP"
 
 # --- [2] Buat profile khusus ---
-echo "🛠️ Membuat profile tunneling..."
+echo "🛠️ Membuat/menggunakan profile tunneling..."
 lxc profile create tunneling 2>/dev/null || true
 
 # --- [3] Fungsi untuk menambahkan port forwarding ---
@@ -31,6 +32,10 @@ add_port() {
     local external_port=$2
     local internal_port=$3
     local protocol=${4:-tcp}
+    
+    # Hapus device jika sudah ada
+    lxc profile device remove tunneling "$port_name" 2>/dev/null && 
+      echo "♻️ Device $port_name sudah ada, menghapus yang lama..." || true
     
     echo "🔹 Forwarding $protocol port $external_port -> $CONTAINER_IP:$internal_port ($port_name)"
     lxc profile device add tunneling "$port_name" proxy \
@@ -69,12 +74,13 @@ add_port l2tp3 4500 4500 udp
 
 # --- [11] Terapkan ke container ---
 echo "📌 Menerapkan profile ke container..."
+lxc profile remove "$CONTAINER_NAME" tunneling 2>/dev/null || true
 lxc profile add "$CONTAINER_NAME" tunneling
 
 # --- [12] Selesai ---
 cat <<EOF
 
-✅ PORT FORWARDING BERHASIL DIBUAT UNTUK CONTAINER:
+✅ PORT FORWARDING BERHASIL DIPERBARUI UNTUK CONTAINER:
    Nama: $CONTAINER_NAME
    IP: $CONTAINER_IP
 
