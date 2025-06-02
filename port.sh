@@ -1,64 +1,82 @@
 #!/bin/bash
 # ================================================
-# PORT FORWARDING UNTUK:
-# - SSH (22, 222, 444)
-# - Dropbear (443, 445)
-# - Websocket/Xray (80, 443, 8080)
-# - HAProxy (80, 443)
-# - SSTP (5555)
-# - PPTP (1723)
-# - L2TP (1701, 500, 4500)
+# AUTO PORT FORWARDING SCRIPT FOR LXC CONTAINER
 # ================================================
 
 # Hentikan script jika ada error
 set -e
 
-# --- [1] Buat profile khusus ---
+# --- [1] Dapatkan nama container dan IP ---
+CONTAINER_NAME=$(lxc list -c n --format csv | head -1)
+CONTAINER_IP=$(lxc list -c 4 --format csv | awk -F' ' '{print $1}' | head -1)
+
+# Verifikasi container ditemukan
+if [ -z "$CONTAINER_NAME" ] || [ -z "$CONTAINER_IP" ]; then
+    echo "❌ Error: Tidak ada container yang berjalan atau IP tidak ditemukan"
+    lxc list
+    exit 1
+fi
+
+echo "🔍 Container ditemukan:"
+echo "Nama: $CONTAINER_NAME"
+echo "IP: $CONTAINER_IP"
+
+# --- [2] Buat profile khusus ---
+echo "🛠️ Membuat profile tunneling..."
 lxc profile create tunneling 2>/dev/null || true
 
-# --- [2] SSH ---
-echo "🔹 Forwarding port SSH..."
-lxc profile device add tunneling ssh1 proxy listen=tcp:0.0.0.0:22 connect=tcp:127.0.0.1:22
-lxc profile device add tunneling ssh2 proxy listen=tcp:0.0.0.0:222 connect=tcp:127.0.0.1:222
-lxc profile device add tunneling ssh3 proxy listen=tcp:0.0.0.0:444 connect=tcp:127.0.0.1:444
+# --- [3] Fungsi untuk menambahkan port forwarding ---
+add_port() {
+    local port_name=$1
+    local external_port=$2
+    local internal_port=$3
+    local protocol=${4:-tcp}
+    
+    echo "🔹 Forwarding $protocol port $external_port -> $CONTAINER_IP:$internal_port ($port_name)"
+    lxc profile device add tunneling "$port_name" proxy \
+        listen=$protocol:0.0.0.0:$external_port \
+        connect=$protocol:$CONTAINER_IP:$internal_port
+}
 
-# --- [3] Dropbear ---
-echo "🔹 Forwarding port Dropbear..."
-lxc profile device add tunneling dropbear1 proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
-lxc profile device add tunneling dropbear2 proxy listen=tcp:0.0.0.0:445 connect=tcp:127.0.0.1:445
+# --- [4] SSH ---
+add_port ssh1 22 22
+add_port ssh2 222 222
+add_port ssh3 444 444
 
-# --- [4] Websocket/Xray ---
-echo "🔹 Forwarding port Websocket/Xray..."
-lxc profile device add tunneling ws1 proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
-lxc profile device add tunneling ws2 proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
-lxc profile device add tunneling ws3 proxy listen=tcp:0.0.0.0:8080 connect=tcp:127.0.0.1:8080
+# --- [5] Dropbear ---
+add_port dropbear1 443 443
+add_port dropbear2 445 445
 
-# --- [5] HAProxy ---
-echo "🔹 Forwarding port HAProxy..."
-lxc profile device add tunneling haproxy1 proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
-lxc profile device add tunneling haproxy2 proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
+# --- [6] Websocket/Xray ---
+add_port ws1 80 80
+add_port ws2 443 443
+add_port ws3 8080 8080
 
-# --- [6] SSTP ---
-echo "🔹 Forwarding port SSTP..."
-lxc profile device add tunneling sstp proxy listen=tcp:0.0.0.0:5555 connect=tcp:127.0.0.1:5555
+# --- [7] HAProxy ---
+add_port haproxy1 80 80
+add_port haproxy2 443 443
 
-# --- [7] PPTP ---
-echo "🔹 Forwarding port PPTP..."
-lxc profile device add tunneling pptp proxy listen=tcp:0.0.0.0:1723 connect=tcp:127.0.0.1:1723
+# --- [8] SSTP ---
+add_port sstp 5555 5555
 
-# --- [8] L2TP ---
-echo "🔹 Forwarding port L2TP..."
-lxc profile device add tunneling l2tp1 proxy listen=udp:0.0.0.0:1701 connect=udp:127.0.0.1:1701
-lxc profile device add tunneling l2tp2 proxy listen=udp:0.0.0.0:500 connect=udp:127.0.0.1:500
-lxc profile device add tunneling l2tp3 proxy listen=udp:0.0.0.0:4500 connect=udp:127.0.0.1:4500
+# --- [9] PPTP ---
+add_port pptp 1723 1723
 
-# --- [9] Terapkan ke container ---
-lxc profile add ubuntu20 tunneling
+# --- [10] L2TP ---
+add_port l2tp1 1701 1701 udp
+add_port l2tp2 500 500 udp
+add_port l2tp3 4500 4500 udp
 
-# --- [10] Selesai ---
+# --- [11] Terapkan ke container ---
+echo "📌 Menerapkan profile ke container..."
+lxc profile add "$CONTAINER_NAME" tunneling
+
+# --- [12] Selesai ---
 cat <<EOF
 
-✅ PORT FORWARDING BERHASIL DIBUAT!
+✅ PORT FORWARDING BERHASIL DIBUAT UNTUK CONTAINER:
+   Nama: $CONTAINER_NAME
+   IP: $CONTAINER_IP
 
 🔹 SSH: 22, 222, 444
 🔹 Dropbear: 443, 445
@@ -70,6 +88,7 @@ cat <<EOF
 
 🔥 Tips:
 - Untuk cek port yang aktif:
-  lxc config device show ubuntu20
-- Jika ada konflik port, edit script dan sesuaikan
+  lxc config device show $CONTAINER_NAME
+- Untuk menghapus forwarding:
+  lxc profile remove $CONTAINER_NAME tunneling
 EOF
