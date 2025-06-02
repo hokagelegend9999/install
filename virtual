@@ -6,75 +6,133 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-echo "[*] Update & install LXD..."
-apt update && apt install lxd -y
+# Fungsi untuk menangani error container
+handle_container_error() {
+  local container=$1
+  
+  echo "⏳ Mencoba memperbaiki container $container..."
+  
+  # Hentikan container jika masih berjalan
+  lxc stop $container --force 2>/dev/null
+  
+  # Hapus container yang bermasalah
+  lxc delete $container --force 2>/dev/null
+  
+  # Hapus semua snapshot
+  lxc delete $container/* --force 2>/dev/null
+  
+  # Hapus image cache yang mungkin rusak
+  lxc image delete ubuntu/20.04 2>/dev/null
+  
+  # Buat ulang storage pool
+  lxc storage delete default --force 2>/dev/null
+  lxc storage create default dir source=/var/lib/lxd/storage-pools/default
+  
+  # Buat ulang container
+  echo "♻️ Membuat ulang container $container..."
+  lxc launch ubuntu:20.04 $container
+}
 
-echo "[*] Init LXD default profile..."
-lxd init --auto
+echo "[*] Memastikan LXD terinstall..."
+if ! command -v lxd &> /dev/null; then
+  echo "[*] Install LXD..."
+  apt update && apt install lxd -y
+else
+  echo "ℹ️ LXD sudah terinstall"
+fi
+
+echo "[*] Inisialisasi LXD profile..."
+if ! lxc storage list | grep -q default; then
+  lxd init --auto
+else
+  echo "ℹ️ Profile default sudah ada"
+fi
 
 CONTAINER="legacy-script-env"
 
 echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
-lxc launch ubuntu:20.04 "$CONTAINER"
+if ! lxc launch ubuntu:20.04 "$CONTAINER"; then
+  echo "❌ Gagal membuat container, mencoba perbaikan..."
+  handle_container_error "$CONTAINER"
+fi
 
 echo "[*] Menunggu container aktif..."
-sleep 10
+sleep 15
+
+# Periksa status container
+if ! lxc list "$CONTAINER" | grep -q RUNNING; then
+  echo "⚠️ Container tidak berjalan, mencoba memulai ulang..."
+  lxc start "$CONTAINER"
+  sleep 10
+fi
+
+if ! lxc list "$CONTAINER" | grep -q RUNNING; then
+  echo "❌ Gagal menjalankan container. Log error:"
+  lxc info "$CONTAINER" --show-log
+  exit 1
+fi
 
 echo "[*] Menyiapkan dependensi di dalam container..."
 lxc exec "$CONTAINER" -- bash -c "
-  apt update && apt upgrade -y &&
+  apt update -y && apt upgrade -y
   apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
-"
+" || echo "⚠️ Beberapa paket gagal diinstall, melanjutkan..."
 
-# Tambahkan autostart menu di bashrc root dalam container
 echo "[*] Menambahkan auto-run 'menu' ke dalam /root/.bashrc container..."
 lxc exec "$CONTAINER" -- bash -c "
-cat >> /root/.bashrc <<EOF
-
-# Auto-run menu jika file ada dan executable
-if [ -x /usr/local/sbin/menu ]; then
-  /usr/local/sbin/menu
-fi
-EOF
+  if [ ! -f /usr/local/sbin/menu ]; then
+    touch /usr/local/sbin/menu
+    chmod +x /usr/local/sbin/menu
+  fi
+  
+  if ! grep -q 'menu' /root/.bashrc; then
+    echo -e '\n# Auto-run menu' >> /root/.bashrc
+    echo 'if [ -x /usr/local/sbin/menu ]; then' >> /root/.bashrc
+    echo '  /usr/local/sbin/menu' >> /root/.bashrc
+    echo 'fi' >> /root/.bashrc
+  fi
 "
 
 echo "[*] Menambahkan alias global 'menu'..."
-
-# Cek dan tambahkan alias ke /etc/bash.bashrc
 if ! grep -q "alias menu=" /etc/bash.bashrc; then
   echo "alias menu='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
+  echo "alias menu-$CONTAINER='lxc exec $CONTAINER -- bash'" >> /etc/bash.bashrc
   echo "✅ Alias global 'menu' ditambahkan ke /etc/bash.bashrc"
 else
   echo "ℹ️ Alias 'menu' sudah ada di /etc/bash.bashrc"
 fi
 
-# Ambil IP container legacy-script-env
-CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -oP '\d+\.\d+\.\d+\.\d+')
+# Mendapatkan IP container dengan lebih robust
+echo "[*] Mendapatkan IP container..."
+CONTAINER_IP=""
+for i in {1..5}; do
+  CONTAINER_IP=$(lxc list "$CONTAINER" -c 4 --format csv | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}")
+  if [ -n "$CONTAINER_IP" ]; then
+    break
+  fi
+  sleep 3
+done
 
 if [ -z "$CONTAINER_IP" ]; then
   echo "⚠️ Gagal mendapatkan IP container $CONTAINER"
+  echo "ℹ️ Menggunakan IP default 10.0.0.1"
+  CONTAINER_IP="10.0.0.1"
 else
-  echo "[*] IP container $CONTAINER adalah $CONTAINER_IP"
+  echo "✅ IP container $CONTAINER: $CONTAINER_IP"
 fi
 
 echo "[*] Mengunduh dan menjalankan script port forwarding..."
-
-# Download script port forwarding ke /tmp/port.sh
 curl -fsSL https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/port.sh -o /tmp/port.sh
 
-if [ ! -f /tmp/port.sh ]; then
-  echo "❌ Gagal mengunduh port forwarding script!"
-  exit 1
+if [ -f /tmp/port.sh ]; then
+  chmod +x /tmp/port.sh
+  # Export variabel untuk script port.sh
+  export CONTAINER="$CONTAINER"
+  export CONTAINER_IP="$CONTAINER_IP"
+  bash /tmp/port.sh
+else
+  echo "⚠️ Gagal mengunduh port forwarding script, melanjutkan tanpa port forwarding"
 fi
-
-# Set executable dan jalankan script port forwarding dengan variabel yang di-export
-chmod +x /tmp/port.sh
-
-# Export variabel untuk script port.sh
-export CONTAINER="$CONTAINER"
-export CONTAINER_IP="$CONTAINER_IP"
-
-bash /tmp/port.sh
 
 echo ""
 echo "✅ Selesai! Container '$CONTAINER' siap digunakan."
