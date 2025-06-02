@@ -1,61 +1,49 @@
 #!/bin/bash
-# ================================================
-# TOTAL LXD & DOCKER CLEANUP SCRIPT
-# Debian/Ubuntu Compatible
-# ================================================
 
-echo "🚨 MEMULAI PEMBERSIHAN TOTAL LXD & DOCKER..."
+echo "🧹 Memulai proses penghapusan total LXD..."
 
-# --- [1] HENTIKAN CONTAINER ---
-echo "🛑 Menghentikan semua container LXD dan Docker..."
-sudo lxc list --format csv -c n | xargs -r -I {} sudo lxc stop {} 2>/dev/null || true
-sudo docker ps -aq | xargs -r -I {} sudo docker stop {} 2>/dev/null || true
+# --- 1. Stop dan hapus semua container LXD ---
+echo "🛑 Menghentikan dan menghapus container LXD (jika ada)..."
+if command -v lxc >/dev/null 2>&1; then
+    sudo lxc list --format csv -c n | xargs -r -I {} sudo lxc stop {} --force 2>/dev/null || true
+    sudo lxc list --format csv -c n | xargs -r -I {} sudo lxc delete {} --force 2>/dev/null || true
+fi
 
-# --- [2] DELETE CONTAINER ---
-echo "🗑️ Menghapus container LXD..."
-sudo lxc list --format csv -c n | xargs -r -I {} sudo lxc delete {} --force 2>/dev/null || true
+# --- 2. Stop service LXD Snap ---
+if systemctl list-units --type=service | grep -q snap.lxd.daemon; then
+    echo "⏹️ Menghentikan service LXD snap..."
+    sudo systemctl stop snap.lxd.daemon
+fi
 
-# --- [3] HENTIKAN DAN NONAKTIFKAN SERVICE ---
-echo "🛑 Menghentikan layanan lxd/lxd.socket..."
-sudo systemctl stop lxd.service lxd.socket lxd-containers.service 2>/dev/null || true
-sudo systemctl disable lxd.service lxd.socket lxd-containers.service 2>/dev/null || true
+# --- 3. Unmount mount points di /var/lib/lxd ---
+echo "📂 Memeriksa dan melepaskan mount di /var/lib/lxd..."
+mountpoints=$(mount | grep '/var/lib/lxd' | awk '{print $3}' | sort -r)
+for mnt in $mountpoints; do
+    echo "📤 Unmount $mnt"
+    sudo umount -lf "$mnt" || true
+done
 
-# --- [4] UNMOUNT ---
-echo "📛 Unmount resource /var/lib/lxd..."
-sudo umount /var/lib/lxd/shmounts 2>/dev/null || true
-sudo umount /var/lib/lxd/devlxd 2>/dev/null || true
+# --- 4. Remove Snap LXD ---
+if snap list | grep -q '^lxd'; then
+    echo "❌ Menghapus LXD Snap..."
+    sudo snap remove --purge lxd || true
+fi
 
-# --- [5] HAPUS SNAP DAN APT LXD ---
-echo "🧹 Menghapus LXD (snap dan apt)..."
-sudo snap remove --purge lxd 2>/dev/null || true
-sudo apt purge -y lxd lxd-client lxcfs lxc-common 2>/dev/null || true
+# --- 5. Remove APT LXD & dependencies ---
+echo "❌ Menghapus paket LXD APT dan terkait..."
+sudo apt purge -y lxd lxd-client lxcfs lxc-common lxc1 || true
+sudo apt autoremove -y
+sudo apt autoclean -y
 
-# --- [6] DELETE FILE & SOCKET ---
-echo "🧽 Menghapus direktori dan socket LXD..."
-sudo rm -rf /var/lib/lxd /etc/lxd /var/log/lxd /run/lxd.socket /run/snapd/ns/lxd.mnt
-sudo rm -rf /var/snap/lxd /root/snap /home/*/snap
-sudo rm -rf ~/.config/lxc
+# --- 6. Hapus folder konfigurasi dan data ---
+echo "🗑️ Menghapus folder konfigurasi dan data LXD..."
+sudo rm -rf /var/lib/lxd /var/snap/lxd /etc/lxd /var/log/lxd || true
 
-# --- [7] HAPUS DOCKER JUGA ---
-echo "🐳 Menghapus Docker..."
-sudo apt purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true
-sudo rm -rf /var/lib/docker /etc/docker
+# --- 7. Restart systemd dan network (optional) ---
+echo "🔄 Merestart systemd dan konfigurasi network..."
+sudo systemctl daemon-reload
+sudo systemctl restart systemd-networkd || true
 
-# --- [8] AUTO CLEANUP ---
-echo "🧼 Membersihkan paket & cache..."
-sudo apt autoremove --purge -y
-sudo apt autoclean
-
-# --- [9] RESET NETWORK (opsional) ---
-echo "🔁 Mereset konfigurasi jaringan..."
-sudo systemctl restart systemd-networkd 2>/dev/null || true
-
-# --- [10] KONFIRMASI ---
-echo
-echo "✅ SEMUA SUDAH DIBERSIHKAN!"
-echo "Pastikan hasil:"
-echo " - 'which lxd' dan 'which lxc' tidak mengembalikan hasil"
-echo " - /var/lib/lxd sudah tidak ada"
-echo " - Tidak ada layanan lxd aktif: 'sudo systemctl status lxd'"
-echo
-echo "🧠 Sekarang kamu bisa menjalankan ulang installer baru dari awal."
+echo ""
+echo "✅ Proses pembersihan LXD selesai."
+echo "Silakan reboot sistem untuk memastikan semua bersih."
