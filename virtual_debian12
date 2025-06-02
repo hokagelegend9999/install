@@ -1,129 +1,79 @@
 #!/bin/bash
 # ================================================
-# AUTO RESET & INSTALL LXD + UBUNTU 20.04 CONTAINER
-# DEBIAN 12 COMPATIBLE
+# FIXED LXD INSTALLATION SCRIPT FOR DEBIAN 12
 # ================================================
 
-# --- [1] HAPUS INSTALASI SEBELUMNYA ---
-echo "🧹 MEMBERSIHKAN INSTALASI LAMA..."
-sudo systemctl stop snap.lxd.daemon 2>/dev/null
-sudo snap remove --purge lxd 2>/dev/null
-sudo apt remove -y --purge docker-ce docker-ce-cli containerd.io 2>/dev/null
-sudo rm -rf /var/lib/docker /etc/docker /var/snap/lxd /var/lib/lxd
-sudo rm -f /usr/local/bin/menu 2>/dev/null
-sudo apt autoremove -y
+# --- [1] HAPUS SNAP LAMA ---
+echo "🧹 Membersihkan snap yang bermasalah..."
+sudo systemctl stop snapd
+sudo apt purge -y snapd
+sudo rm -rf /var/snap /snap /var/lib/snapd
 
-# --- [2] INSTALL LXD ---
-echo "🛠  INSTALLING LXD..."
+# --- [2] INSTALL SNAP YANG FRESH ---
+echo "🔄 Menginstall ulang snapd..."
 sudo apt update
 sudo apt install -y snapd
-sudo snap install lxd --channel=5.0/stable
+sudo systemctl start snapd
+sudo systemctl enable snapd
 
-# --- [3] INISIALISASI LXD ---
-echo "🔧 INITIALIZING LXD..."
-cat <<EOF | sudo lxd init --preseed
-config:
-  core.https_address: '[::]:8443'
-  core.trust_password: "password"
-storage_pools:
-- name: default
-  driver: dir
-networks:
-- name: lxdbr0
-  type: bridge
-  config:
-    ipv4.address: auto
-    ipv6.address: none
-profiles:
-- name: default
-  devices:
-    root:
-      path: /
-      pool: default
-      type: disk
-    eth0:
-      name: eth0
-      network: lxdbr0
-      type: nic
-EOF
+# --- [3] UPDATE SNAPD ---
+echo "🆙 Memperbarui snapd core..."
+while ! sudo snap install core; do
+    echo "⚠️ Gagal install core, mencoba lagi..."
+    sleep 5
+done
+sudo snap refresh core
 
-# --- [4] KONFIGURASI USER ---
-echo "👤 SETUP USER..."
+# --- [4] INSTALL LXD ---
+echo "🐳 Menginstall LXD..."
+while ! sudo snap install lxd --channel=5.0/stable; do
+    echo "⚠️ Gagal install LXD, mencoba lagi..."
+    sleep 5
+done
+sudo snap refresh lxd --channel=5.0/stable
+
+# --- [5] INISIALISASI LXD ---
+echo "🔧 Inisialisasi LXD..."
+sudo lxd waitready
+sleep 10  # Beri waktu tambahan untuk memastikan service ready
+sudo lxd init --auto --storage-backend=dir
+
+# Pastikan socket LXD ada
+echo "🔍 Memverifikasi socket LXD..."
+if [ ! -S /var/snap/lxd/common/lxd/unix.socket ]; then
+    echo "⚠️ Socket LXD tidak ditemukan, restarting service..."
+    sudo snap restart lxd
+    sleep 10
+fi
+
+# --- [6] KONFIGURASI USER ---
+echo "👤 Konfigurasi user..."
 sudo usermod -aG lxd $USER
 newgrp lxd <<EONG
-echo "🐳 LXD Version: $(lxc --version)"
+echo "✅ LXD siap digunakan"
+lxc list
 EONG
 
-# --- [5] BUAT CONTAINER ---
-echo "🚀 CREATING UBUNTU 20.04 CONTAINER..."
-lxc launch ubuntu:20.04 ubuntu20 -p default
+# --- [7] VERIFIKASI ---
+echo "🔍 Verifikasi instalasi..."
+sudo lxc info
+lxc list
 
-# --- [6] KONFIGURASI DASAR ---
-echo "⚙️ BASIC CONTAINER SETUP..."
-lxc exec ubuntu20 -- bash -c "echo -e 'nameserver 8.8.8.8\nnameserver 1.1.1.1' > /etc/resolv.conf"
-lxc exec ubuntu20 -- apt update
-lxc exec ubuntu20 -- apt upgrade -y
-lxc exec ubuntu20 -- apt install -y sudo curl wget nano net-tools openssh-server
+# --- [8] BUAT CONTAINER ---
+echo "🚀 Membuat container Ubuntu 20.04..."
+while ! lxc launch ubuntu:20.04 ubuntu20; do
+    echo "⚠️ Gagal membuat container, mencoba lagi..."
+    sleep 5
+done
 
-# --- [7] PORT FORWARDING ---
-echo "🔌 SETUP PORT FORWARDING..."
-lxc profile create tunnel 2>/dev/null || true
+lxc exec ubuntu20 -- apt update && lxc exec ubuntu20 -- apt upgrade -y
 
-# SSH & Dropbear
-lxc profile device add tunnel ssh proxy listen=tcp:0.0.0.0:22 connect=tcp:127.0.0.1:22
-lxc profile device add tunnel dropbear proxy listen=tcp:0.0.0.0:222 connect=tcp:127.0.0.1:222
-
-# Websocket/Xray
-lxc profile device add tunnel ws-http proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
-lxc profile device add tunnel ws-https proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
-
-# VPN Ports
-lxc profile device add tunnel sstp proxy listen=tcp:0.0.0.0:5555 connect=tcp:127.0.0.1:5555
-lxc profile device add tunnel pptp proxy listen=tcp:0.0.0.0:1723 connect=tcp:127.0.0.1:1723
-lxc profile device add tunnel l2tp1 proxy listen=udp:0.0.0.0:1701 connect=udp:127.0.0.1:1701
-lxc profile device add tunnel l2tp2 proxy listen=udp:0.0.0.0:500 connect=udp:127.0.0.1:500
-lxc profile device add tunnel l2tp3 proxy listen=udp:0.0.0.0:4500 connect=udp:127.0.0.1:4500
-
-lxc profile add ubuntu20 tunnel
-
-# --- [8] BUAT USER ADMIN ---
-echo "👤 CREATING ADMIN USER..."
-lxc exec ubuntu20 -- bash -c "useradd -m -s /bin/bash admin && echo 'admin:password' | chpasswd && usermod -aG sudo admin"
-
-# --- [9] SHORTCUT 'menu' ---
-echo "🔧 CREATING 'menu' SHORTCUT..."
-sudo tee /usr/local/bin/menu > /dev/null <<'EOF'
-#!/bin/bash
-clear
-echo "🖥  Connecting to Ubuntu 20.04 container..."
-echo "🔑 Default credentials: admin/password"
-lxc exec ubuntu20 -- sudo --login --user admin
-EOF
-sudo chmod +x /usr/local/bin/menu
-
-# --- [10] FIREWALL RULES ---
-echo "🔥 SETTING UP FIREWALL..."
-
-
-# --- [11] SELESAI ---
 cat <<EOF
 
-✅ INSTALASI SELESAI!
+✅ INSTALASI BERHASIL!
 
-🔹 Akses Container:
-   - CLI: ketik 'menu'
-   - SSH: ssh admin@$(hostname -I | awk '{print $1}') -p 22
-   Password: password
-
-🔹 Port Forwarding:
-   - SSH: 22, 222
-   - Websocket: 80, 443
-   - SSTP: 5555
-   - PPTP: 1723
-   - L2TP: 1701/udp, 500/udp, 4500/udp
-
-🔥 Tips:
-- Ganti password default: passwd admin
-- Install service tambahan:
-  sudo apt install -y nginx dropbear xray
+Gunakan perintah berikut:
+- Akses container: lxc exec ubuntu20 -- bash
+- Cek status: lxc list
+- Stop container: lxc stop ubuntu20
 EOF
