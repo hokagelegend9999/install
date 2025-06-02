@@ -12,31 +12,40 @@ handle_container_error() {
   
   echo "⏳ Mencoba memperbaiki container $container..."
   
-  lxc stop $container --force 2>/dev/null
-  lxc delete $container --force 2>/dev/null
-  lxc delete $container/* --force 2>/dev/null
-  lxc image delete ubuntu/20.04 2>/dev/null
-  lxc storage delete default --force 2>/dev/null
-  lxc storage create default dir source=/var/lib/lxd/storage-pools/default
+  # Gunakan perintah lengkap dengan path
+  /snap/bin/lxc stop $container --force 2>/dev/null
+  /snap/bin/lxc delete $container --force 2>/dev/null
+  /snap/bin/lxc delete $container/* --force 2>/dev/null
+  /snap/bin/lxc image delete ubuntu/20.04 2>/dev/null
+  /snap/bin/lxc storage delete default --force 2>/dev/null
+  /snap/bin/lxc storage create default dir source=/var/lib/lxd/storage-pools/default
   
   echo "♻️ Membuat ulang container $container..."
-  lxc launch ubuntu:20.04 $container
+  /snap/bin/lxc launch ubuntu:20.04 $container
 }
 
-# ========== [1] INSTALL LXD ==========
-echo "[*] Memastikan LXD terinstall..."
-if ! command -v lxd &> /dev/null; then
-  echo "[*] Install LXD..."
-  apt update && apt install -y snapd
-  sudo snap install lxd --channel=5.0/stable
-else
-  echo "ℹ️ LXD sudah terinstall"
-fi
+# ========== [1] PERBAIKI SNAP & INSTALL LXD ==========
+echo "[*] Memperbaiki lingkungan snap..."
+sudo snap remove lxd --purge
+sudo snap remove core20 --purge
+sudo snap remove snapd --purge
+
+echo "[*] Re-install snapd..."
+sudo apt update
+sudo apt install -y --reinstall snapd
+sudo systemctl enable --now snapd.socket
+sudo ln -s /var/lib/snapd/snap /snap
+
+echo "[*] Install LXD versi stabil..."
+sudo snap install lxd --stable
+
+# Pastikan PATH termasuk snap
+export PATH=$PATH:/snap/bin
 
 # ========== [2] INIT LXD ==========
 echo "[*] Inisialisasi LXD..."
-if ! lxc storage list | grep -q default; then
-  cat <<EOF | lxd init --preseed
+if ! /snap/bin/lxc storage list | grep -q default; then
+  cat <<EOF | /snap/bin/lxd init --preseed
 config:
   core.https_address: '[::]:8443'
   core.trust_password: "password"
@@ -69,62 +78,62 @@ fi
 CONTAINER="legacy-script-env"
 
 echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
-if ! lxc launch ubuntu:20.04 "$CONTAINER"; then
+if ! /snap/bin/lxc launch ubuntu:20.04 "$CONTAINER"; then
   echo "❌ Gagal membuat container, mencoba perbaikan..."
   handle_container_error "$CONTAINER"
 fi
 
 echo "[*] Menunggu container aktif..."
-sleep 15
+sleep 30  # Beri waktu lebih lama
 
-if ! lxc list "$CONTAINER" | grep -q RUNNING; then
+if ! /snap/bin/lxc list "$CONTAINER" | grep -q RUNNING; then
   echo "⚠️ Container tidak berjalan, mencoba memulai ulang..."
-  lxc start "$CONTAINER"
-  sleep 10
+  /snap/bin/lxc start "$CONTAINER"
+  sleep 20
 fi
 
-if ! lxc list "$CONTAINER" | grep -q RUNNING; then
+if ! /snap/bin/lxc list "$CONTAINER" | grep -q RUNNING; then
   echo "❌ Gagal menjalankan container. Log error:"
-  lxc info "$CONTAINER" --show-log
+  /snap/bin/lxc info "$CONTAINER" --show-log
   exit 1
 fi
 
 # ========== [4] CONTAINER SETUP ==========
 echo "[*] Menyiapkan dependensi di dalam container..."
-lxc exec "$CONTAINER" -- bash -c "
+/snap/bin/lxc exec "$CONTAINER" -- bash -c "
   apt update -y && apt upgrade -y
-  apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables nginx dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
+  apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
 " || echo "⚠️ Beberapa paket gagal diinstall, melanjutkan..."
 
 # ========== [5] MENU COMMAND FIX ==========
 echo "[*] Membuat shortcut 'menu' yang benar..."
 sudo tee /usr/local/bin/menu > /dev/null <<'EOF'
 #!/bin/bash
-lxc exec legacy-script-env -- bash
+/snap/bin/lxc exec legacy-script-env -- bash
 EOF
 sudo chmod +x /usr/local/bin/menu
 
 # Tambahkan ke .bashrc root
 if ! grep -q "alias menu=" /root/.bashrc; then
-  echo "alias menu='lxc exec legacy-script-env -- bash'" >> /root/.bashrc
+  echo "alias menu='/snap/bin/lxc exec legacy-script-env -- bash'" >> /root/.bashrc
+  source /root/.bashrc
 fi
 
-# ========== [6] PORT FORWARDING ==========
-echo "[*] Setup port forwarding..."
-lxc config device add "$CONTAINER" http proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
-lxc config device add "$CONTAINER" https proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
-lxc config device add "$CONTAINER" ssh proxy listen=tcp:0.0.0.0:22 connect=tcp:127.0.0.1:22
+# ========== [6] DOWNLOAD & RUN PORT FORWARDING SCRIPT ==========
+echo "[*] Mendownload dan menjalankan script port forwarding..."
+wget -q -O /tmp/port.sh "https://github.com/hokagelegend9999/install/raw/main/port.sh"
+chmod +x /tmp/port.sh
+
+# Jalankan script port forwarding
+sudo /tmp/port.sh
 
 # ========== [7] FINALIZATION ==========
 echo ""
 echo "✅ INSTALASI BERHASIL!"
 echo "➡️ Ketik 'menu' untuk masuk ke container"
-echo "🔌 Port yang diforward:"
-echo "   - HTTP: 80"
-echo "   - HTTPS: 443"
-echo "   - SSH: 22"
+echo "🔌 Port forwarding diatur oleh script port.sh"
 echo ""
 echo "💡 Tips:"
-echo "1. Untuk akses root di container: lxc exec $CONTAINER -- bash"
-echo "2. Cek status container: lxc list"
-echo "3. Backup container: lxc export $CONTAINER backup.tar.gz"
+echo "1. Untuk akses root di container: /snap/bin/lxc exec $CONTAINER -- bash"
+echo "2. Cek status container: /snap/bin/lxc list"
+echo "3. Backup container: /snap/bin/lxc export $CONTAINER backup.tar.gz"
