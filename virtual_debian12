@@ -16,29 +16,46 @@ sudo apt install -y snapd
 sudo systemctl start snapd
 sudo systemctl enable snapd
 
+# Tunggu sampai snapd benar-benar ready
+sleep 10
+
 # --- [3] UPDATE SNAPD ---
 echo "🆙 Memperbarui snapd core..."
-while ! sudo snap install core; do
-    echo "⚠️ Gagal install core, mencoba lagi..."
-    sleep 5
-done
+sudo snap install core
 sudo snap refresh core
 
 # --- [4] INSTALL LXD ---
 echo "🐳 Menginstall LXD..."
-while ! sudo snap install lxd --channel=5.0/stable; do
-    echo "⚠️ Gagal install LXD, mencoba lagi..."
-    sleep 5
-done
-sudo snap refresh lxd --channel=5.0/stable
+sudo snap install lxd --channel=latest/stable
+sudo snap refresh lxd --channel=latest/stable
 
 # --- [5] INISIALISASI LXD ---
 echo "🔧 Inisialisasi LXD..."
-sudo lxd waitready
-sleep 10  # Beri waktu tambahan untuk memastikan service ready
+
+# Pastikan service LXD aktif
+sudo snap start lxd
+
+# Tunggu sampai LXD benar-benar ready
+timeout=30
+while [ $timeout -gt 0 ]; do
+    if sudo lxd waitready; then
+        break
+    fi
+    echo "⏳ Menunggu LXD ready... (sisa waktu: $timeout detik)"
+    sleep 1
+    ((timeout--))
+done
+
+if [ $timeout -eq 0 ]; then
+    echo "⚠️ LXD tidak ready dalam waktu yang ditentukan, restarting service..."
+    sudo snap restart lxd
+    sleep 10
+fi
+
+# Jalankan inisialisasi
 sudo lxd init --auto --storage-backend=dir
 
-# Pastikan socket LXD ada
+# Verifikasi socket
 echo "🔍 Memverifikasi socket LXD..."
 if [ ! -S /var/snap/lxd/common/lxd/unix.socket ]; then
     echo "⚠️ Socket LXD tidak ditemukan, restarting service..."
@@ -61,11 +78,7 @@ lxc list
 
 # --- [8] BUAT CONTAINER ---
 echo "🚀 Membuat container Ubuntu 20.04..."
-while ! lxc launch ubuntu:20.04 ubuntu20; do
-    echo "⚠️ Gagal membuat container, mencoba lagi..."
-    sleep 5
-done
-
+lxc launch ubuntu:20.04 ubuntu20
 lxc exec ubuntu20 -- apt update && lxc exec ubuntu20 -- apt upgrade -y
 
 cat <<EOF
