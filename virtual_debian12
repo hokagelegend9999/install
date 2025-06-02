@@ -1,84 +1,75 @@
 #!/bin/bash
 
 # ====================================================
-# AUTO-INSTALL DOCKER + UBUNTU CONTAINER + MENU ACCESS
+# AUTO-INSTALL LXD + UBUNTU CONTAINER + PORT FORWARDING
 # DEBIAN 12 COMPATIBLE
 # ====================================================
 
 # Hentikan script jika ada error
 set -e
 
-# --- [1] INSTALL DOCKER ---
-echo "🛠  INSTALLING DOCKER..."
+# --- [1] INSTALL LXD ---
+echo "🛠  INSTALLING LXD..."
 sudo apt update
-sudo apt install -y ca-certificates curl gnupg
+sudo apt install -y lxd lxd-client
 
-# Tambahkan repo Docker
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Inisialisasi LXD (non-interactive)
+echo "🔧 Initializing LXD..."
+sudo lxd init --auto --storage-backend=dir
 
-# Install Docker
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-# Tambahkan user ke grup docker
-sudo usermod -aG docker $USER
-newgrp docker <<EONG
-echo "🐳 Docker siap! Versi: $(docker --version)"
+# Tambahkan user ke grup lxd
+sudo usermod -aG lxd $USER
+newgrp lxd <<EONG
+echo "🐳 LXD ready: $(lxc --version)"
 EONG
 
 # --- [2] BUAT CONTAINER ---
 echo "🛠  MEMBUAT CONTAINER UBUNTU 20.04..."
-docker run -d \
-  --name ubuntu20 \
-  -p 80:80 \
-  -p 443:443 \
-  -p 2222:22 \
-  -p 3306:3306 \
-  -p 5432:5432 \
-  -p 8000-8010:8000-8010 \
-  ubuntu:20.04 \
-  sleep infinity
+lxc launch ubuntu:20.04 ubuntu20
 
-# --- [3] SETUP CONTAINER ---
+# --- [3] SETUP DASAR ---
 echo "⚙️  SETUP DASAR CONTAINER..."
-docker exec ubuntu20 apt update
-docker exec ubuntu20 apt install -y sudo curl nano bash
+lxc exec ubuntu20 -- apt update
+lxc exec ubuntu20 -- apt install -y sudo curl nano bash openssh-server
 
-# --- [4] BUAT SHORTCUT 'menu' ---
+# --- [4] PORT FORWARDING ---
+echo "🔌 SETUP PORT FORWARDING..."
+# Buat profile khusus
+lxc profile create portforwarding
+lxc profile device add portforwarding hostport proxy \
+  listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
+lxc profile device add portforwarding hostport-ssh proxy \
+  listen=tcp:0.0.0.0:2222 connect=tcp:127.0.0.1:22
+
+# Terapkan profile ke container
+lxc profile add ubuntu20 portforwarding
+
+# --- [5] BUAT SHORTCUT 'menu' ---
 echo "🔧 MEMBUAT PERINTAH 'menu'..."
 sudo tee /usr/local/bin/menu > /dev/null <<'EOF'
 #!/bin/bash
-CONTAINER_NAME="ubuntu20"
-if ! docker ps | grep -q $CONTAINER_NAME; then
-  echo "🚀 Starting container..."
-  docker start $CONTAINER_NAME > /dev/null
-fi
-docker exec -it $CONTAINER_NAME bash
+lxc exec ubuntu20 -- bash
 EOF
 
 sudo chmod +x /usr/local/bin/menu
 
-# --- [5] SELESAI ---
+# --- [6] SELESAI ---
 cat <<EOF
 
 ✅ SCRIPT SELESAI DIJALANKAN!
 
 Fitur yang telah diaktifkan:
-1. Docker terinstall ($(docker --version | cut -d' ' -f3-))
+1. LXD terinstall ($(lxc --version))
 2. Container 'ubuntu20' berjalan
 3. Port yang diforward:
-   - HTTP:80, HTTPS:443
-   - SSH:2222 (akses dengan 'ssh -p 2222 user@host')
-   - Database: 3306 (MySQL), 5432 (PostgreSQL)
-   - Aplikasi: 8000-8010
+   - HTTP:80 → container:80
+   - SSH:2222 → container:22
 4. Akses cepat: ketik 'menu' untuk masuk container
 
 🔥 TIPS:
-- Tambahkan user di container: 
-  'sudo useradd -m -s /bin/bash username'
-- Install aplikasi di container: 
-  'sudo apt install -y apache2 mysql-server'
+- Akses SSH dari host: 
+  'ssh ubuntu@localhost -p 2222'
+- Tambahkan port forwarding baru:
+  'lxc profile device add portforwarding nama-device proxy \\
+   listen=tcp:0.0.0.0:<HOST_PORT> connect=tcp:127.0.0.1:<CONTAINER_PORT>'
 EOF
