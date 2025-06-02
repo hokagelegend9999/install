@@ -1,10 +1,14 @@
 #!/bin/bash
 # ================================================
-# CLEANUP PREVIOUS INSTALLATION (LXD/DOCKER)
-# DEBIAN 12 COMPATIBLE
+# TOTAL CLEANUP LXD & DOCKER INSTALLATION
+# Tested on: Debian 12 / Ubuntu 20.04+
 # ================================================
 
-# --- [1] HENTIKAN SEMUA CONTAINER ---
+echo "==============================================="
+echo "🔧 MEMULAI PEMBERSIHAN TOTAL LXD & DOCKER..."
+echo "==============================================="
+
+# --- [1] HENTIKAN CONTAINER ---
 echo "🛑 Menghentikan container yang aktif..."
 sudo lxc list --format csv -c n | xargs -I {} sudo lxc stop {} 2>/dev/null || true
 sudo docker ps -aq | xargs -I {} sudo docker stop {} 2>/dev/null || true
@@ -13,49 +17,59 @@ sudo docker ps -aq | xargs -I {} sudo docker stop {} 2>/dev/null || true
 echo "🗑️ Menghapus container LXD..."
 sudo lxc list --format csv -c n | xargs -I {} sudo lxc delete {} --force 2>/dev/null || true
 
-# --- [3] HAPUS DOCKER ---
+# --- [3] UNMOUNT LXD tmpfs ---
+echo "📛 Unmount resource LXD..."
+mount | grep /var/lib/lxd && {
+    sudo umount /var/lib/lxd/shmounts 2>/dev/null || true
+    sudo umount /var/lib/lxd/devlxd 2>/dev/null || true
+}
+
+# --- [4] HAPUS DOCKER ---
 echo "🧹 Membersihkan instalasi Docker..."
 sudo apt remove -y --purge docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true
 sudo rm -rf /var/lib/docker /etc/docker
 
-# --- [4] HAPUS LXD ---
+# --- [5] HAPUS LXD via SNAP & APT ---
 echo "🧹 Membersihkan instalasi LXD..."
 sudo snap remove --purge lxd 2>/dev/null || true
-sudo rm -rf /var/snap/lxd /var/lib/lxd
+sudo apt remove --purge -y lxd lxd-client 2>/dev/null || true
 
-# --- [5] HAPUS PROFIL & NETWORK ---
-echo "🧽 Membersihkan profil LXD..."
+# --- [6] HAPUS FILE & KONFIGURASI ---
+echo "🧽 Menghapus semua file konfigurasi dan storage LXD..."
+sudo rm -rf /var/lib/lxd /etc/lxd /var/log/lxd /var/snap/lxd /root/snap/lxd /home/*/snap/lxd
+
+# --- [7] HAPUS PROFIL & NETWORK ---
+echo "🧽 Membersihkan profil dan jaringan LXD..."
 sudo rm -rf /var/lib/lxd/storage-pools/default/containers/* 2>/dev/null || true
 sudo lxc profile delete tunnel 2>/dev/null || true
 sudo lxc network delete lxdbr0 2>/dev/null || true
 
-# --- [6] HAPUS SHORTCUT ---
+# --- [8] HAPUS SHORTCUT ---
 echo "🔧 Menghapus shortcut menu..."
 sudo rm -f /usr/local/bin/menu 2>/dev/null || true
 
-# --- [7] HAPUS DEPENDENSI TIDAK TERPAKAI ---
+# --- [9] HAPUS DEPENDENSI TIDAK TERPAKAI ---
 echo "🧹 Membersihkan paket tidak terpakai..."
-sudo apt autoremove -y
+sudo apt autoremove --purge -y
 sudo apt autoclean
 
-# --- [8] RESET KONFIGURASI ---
+# --- [10] RESET KONFIGURASI JARINGAN ---
 echo "🔄 Mereset konfigurasi jaringan..."
-sudo systemctl restart systemd-networkd
+sudo systemctl restart systemd-networkd 2>/dev/null || true
 
-# --- [9] SELESAI ---
-cat <<EOF
-
-✅ PEMBERSIHAN SELESAI!
-
-Sistem sekarang bersih dari:
-- Semua container LXD
-- Instalasi Docker
-- Konfigurasi jaringan LXD
-- File residual
-
-Langkah berikutnya:
-1. Jalankan installer baru
-2. Setup ulang container
-
-🔥 Tips: Backup konfigurasi penting sebelum membersihkan!
-EOF
+# --- [11] CEK HASIL ---
+echo
+echo "==============================================="
+echo "✅ PEMBERSIHAN SELESAI!"
+echo "==============================================="
+echo
+echo "📦 Dihapus:"
+echo " - Semua container LXD & Docker"
+echo " - Semua file konfigurasi, storage, snap, mount"
+echo " - Semua jaringan virtual lxdbr0"
+echo
+echo "🔥 Langkah selanjutnya:"
+echo "1. Jalankan installer/container baru"
+echo "2. Setup ulang dari awal"
+echo
+echo "💡 Tips: Backup data penting sebelum menjalankan script ini!"
