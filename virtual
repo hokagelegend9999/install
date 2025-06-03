@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================
-# VPN CONTAINER INSTALLER - FIXED FOR UBUNTU NOBLE
+# VPN CONTAINER INSTALLER - SNAP VERSION FOR NOBLE
 # ==============================================
 
 CONTAINER_NAME="vpn-container"
@@ -20,29 +20,37 @@ function show_success() {
     echo -e "\033[1;32m✓ $1\033[0m"
 }
 
-# 1. Install dan setup LXD dari awal
+# 1. Install dan setup LXD dari awal menggunakan Snap
 function clean_install_lxd() {
-    show_msg "Melakukan clean install LXD..."
-    
-    # Aktifkan repository universe jika belum
-    sudo add-apt-repository -y universe
+    show_msg "Melakukan clean install LXD via Snap..."
     
     # Hapus instalasi lama jika ada
-    sudo apt remove --purge -y lxd lxd-client
+    sudo apt remove --purge -y lxd lxd-client 2>/dev/null
+    sudo snap remove --purge lxd 2>/dev/null
     sudo rm -rf /var/lib/lxd
     
-    # Install dependencies
-    sudo apt update
-    sudo apt install -y snapd
+    # Install snapd jika belum ada
+    if ! command -v snap >/dev/null; then
+        show_msg "Menginstal snapd..."
+        sudo apt update
+        sudo apt install -y snapd
+    fi
     
-    # Install LXD via snap (cara yang direkomendasikan)
-    sudo snap install lxd
+    # Pastikan snapd aktif
+    sudo systemctl enable --now snapd.socket
+    
+    # Install LXD via snap (versi stabil)
+    show_msg "Menginstal LXD dari snap..."
+    sudo snap install lxd --channel=latest/stable
     
     # Tambahkan path snap ke PATH jika belum ada
     if ! grep -q "/snap/bin" ~/.bashrc; then
         echo 'export PATH=$PATH:/snap/bin' >> ~/.bashrc
         source ~/.bashrc
     fi
+    
+    # Tunggu snap terinisialisasi
+    sleep 5
     
     # Tambahkan user ke group lxd
     sudo usermod -aG lxd $USER
