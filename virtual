@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # ==============================================
-# VPN CONTAINER INSTALLER - ALL IN ONE SCRIPT
+# VPN CONTAINER INSTALLER - FINAL FIXED VERSION
 # ==============================================
 
-# Konfigurasi
 CONTAINER_NAME="vpn-container"
 CONTAINER_IMAGE="ubuntu:20.04"
 LXD_CHANNEL="latest/stable"
@@ -26,12 +25,12 @@ function show_success() {
 function system_prep() {
     show_msg "Memulai persiapan sistem..."
     
-    # Update paket
+    # Update dan upgrade sistem
     sudo apt update
     sudo apt upgrade -y
     
     # Install dependensi
-    sudo apt install -y snapd bridge-utils
+    sudo apt install -y snapd zfsutils-linux bridge-utils
     
     # Aktifkan snapd
     sudo systemctl enable --now snapd.socket
@@ -48,17 +47,18 @@ function install_lxd() {
     sudo rm -rf /var/lib/lxd
     
     # Install LXD via snap
-    sudo snap install lxd --channel=$LXD_CHANNEL
+    sudo snap install lxd --channel=$LXD_CHANNER
     
     # Tambahkan path snap
     export PATH=$PATH:/snap/bin
     echo 'export PATH=$PATH:/snap/bin' >> ~/.bashrc
+    source ~/.bashrc
     
     # Setup grup
     sudo usermod -aG lxd $USER
     newgrp lxd
     
-    # Inisialisasi LXD
+    # Inisialisasi LXD dengan storage pool yang benar
     show_msg "Menginisialisasi LXD..."
     cat <<EOF | lxd init --preseed
 config:
@@ -67,7 +67,10 @@ config:
   images.auto_update_interval: 24
 storage_pools:
 - name: default
-  driver: dir
+  driver: zfs
+  config:
+    source: /var/lib/lxd/storage-pools/default
+    zfs.pool_name: default
 networks:
 - name: lxdbr0
   type: bridge
@@ -98,15 +101,25 @@ function setup_container() {
         lxc delete $CONTAINER_NAME --force
     fi
     
-    # Buat container baru
-    lxc launch $CONTAINER_IMAGE $CONTAINER_NAME
+    # Pastikan storage pool ada
+    if ! lxc storage list --format csv | grep -q "^default,"; then
+        show_msg "Membuat storage pool default..."
+        lxc storage create default zfs source=/var/lib/lxd/storage-pools/default
+    fi
     
-    # Konfigurasi container
-    show_msg "Mengkonfigurasi container..."
-    lxc config set $CONTAINER_NAME security.nesting true
-    lxc config set $CONTAINER_NAME security.privileged true
+    # Buat container baru dengan konfigurasi eksplisit
+    show_msg "Membuat container baru..."
+    lxc init $CONTAINER_IMAGE $CONTAINER_NAME -c security.nesting=true -c security.privileged=true
+    
+    # Attach storage secara manual
+    lxc config device add $CONTAINER_NAME root disk path=/ pool=default
+    
+    # Konfigurasi resource
     lxc config set $CONTAINER_NAME limits.memory 2GB
     lxc config set $CONTAINER_NAME limits.cpu 2
+    
+    # Mulai container
+    lxc start $CONTAINER_NAME
     
     # Tunggu container siap
     show_msg "Menunggu container siap..."
@@ -118,18 +131,21 @@ function setup_container() {
 function setup_menu() {
     show_msg "Membuat menu akses container..."
     
-    # Buat script menu
+    # Buat script menu yang lebih robust
     sudo tee /usr/local/bin/vpn-menu > /dev/null <<'EOL'
 #!/bin/bash
 
 CONTAINER_NAME="vpn-container"
 
+# Fix permission warning
+unset XDG_RUNTIME_DIR
+
 # Cek apakah container ada
 if ! lxc list --format csv | grep -q "^$CONTAINER_NAME,"; then
     echo "Container $CONTAINER_NAME tidak ditemukan, membuat baru..."
-    sudo lxc launch ubuntu:20.04 $CONTAINER_NAME
-    sudo lxc config set $CONTAINER_NAME security.nesting true
-    sudo lxc config set $CONTAINER_NAME security.privileged true
+    sudo lxc init ubuntu:20.04 $CONTAINER_NAME -c security.nesting=true -c security.privileged=true
+    sudo lxc config device add $CONTAINER_NAME root disk path=/ pool=default
+    sudo lxc start $CONTAINER_NAME
     sleep 15
 fi
 
@@ -137,12 +153,12 @@ fi
 CONTAINER_STATUS=$(lxc list -f csv | grep "^$CONTAINER_NAME," | cut -d, -f4)
 if [ "$CONTAINER_STATUS" != "RUNNING" ]; then
     echo "Menjalankan container $CONTAINER_NAME..."
-    lxc start $CONTAINER_NAME
+    sudo lxc start $CONTAINER_NAME
     sleep 5
 fi
 
 echo "Memasuki container $CONTAINER_NAME..."
-exec lxc exec $CONTAINER_NAME -- bash
+exec sudo lxc exec $CONTAINER_NAME -- bash
 EOL
 
     sudo chmod +x /usr/local/bin/vpn-menu
@@ -155,23 +171,17 @@ EOL
     source ~/.bashrc
 }
 
-# 5. Optimasi KVM
-function optimize_kvm() {
-    show_msg "Mengoptimalkan KVM support..."
+# 5. Fix permission issues
+function fix_permissions() {
+    show_msg "Memperbaiki permission issues..."
     
-    # Load modul KVM
-    sudo modprobe kvm
+    # Fix permission warning
+    echo "unset XDG_RUNTIME_DIR" >> ~/.bashrc
     
-    # Untuk Intel atau AMD
-    if grep -q "Intel" /proc/cpuinfo; then
-        sudo modprobe kvm_intel
-        echo "kvm_intel" | sudo tee -a /etc/modules
-    elif grep -q "AMD" /proc/cpuinfo; then
-        sudo modprobe kvm_amd
-        echo "kvm_amd" | sudo tee -a /etc/modules
-    fi
-    
-    echo "kvm" | sudo tee -a /etc/modules
+    # Rebuild group cache
+    sudo gpasswd -a $USER lxd
+    newgrp lxd
+    sudo systemctl restart snap.lxd.daemon
 }
 
 # Main installation
@@ -181,8 +191,8 @@ show_msg "Memulai instalasi VPN Container..."
 system_prep
 install_lxd
 setup_container
+fix_permissions
 setup_menu
-optimize_kvm
 
 # Verifikasi akhir
 if lxc list --format csv | grep -q "^$CONTAINER_NAME,RUNNING"; then
@@ -195,7 +205,8 @@ else
     show_error "Instalasi gagal. Silakan coba langkah berikut:"
     echo "1. Jalankan installer lagi:"
     echo "   sudo $(readlink -f "$0")"
-    echo "2. Atau buat container manual:"
-    echo "   lxc launch ubuntu:20.04 $CONTAINER_NAME"
+    echo "2. Atau coba buat container manual:"
+    echo "   lxc init ubuntu:20.04 $CONTAINER_NAME"
+    echo "   lxc config device add $CONTAINER_NAME root disk path=/ pool=default"
     exit 1
 fi
