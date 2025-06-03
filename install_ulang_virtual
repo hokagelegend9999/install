@@ -77,7 +77,6 @@ echo "[7/7] Memperbaiki database paket..."
 } > /dev/null 2>&1
 lxc delete vpn-container --force
 sudo rm -rf /var/lib/lxd
-sudo snap remove lxd
 sudo rm -rf /var/snap/lxd
 sudo rm -rf /var/lib/lxd
 sudo rm -rf /etc/lxd
