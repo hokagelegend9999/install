@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================
-# VPN CONTAINER INSTALLER - GUARANTEED WORKING VERSION
+# VPN CONTAINER INSTALLER - FIXED FOR UBUNTU NOBLE
 # ==============================================
 
 CONTAINER_NAME="vpn-container"
@@ -24,13 +24,25 @@ function show_success() {
 function clean_install_lxd() {
     show_msg "Melakukan clean install LXD..."
     
+    # Aktifkan repository universe jika belum
+    sudo add-apt-repository -y universe
+    
     # Hapus instalasi lama jika ada
     sudo apt remove --purge -y lxd lxd-client
     sudo rm -rf /var/lib/lxd
     
-    # Install ulang LXD
+    # Install dependencies
     sudo apt update
-    sudo apt install -y lxd lxd-client
+    sudo apt install -y snapd
+    
+    # Install LXD via snap (cara yang direkomendasikan)
+    sudo snap install lxd
+    
+    # Tambahkan path snap ke PATH jika belum ada
+    if ! grep -q "/snap/bin" ~/.bashrc; then
+        echo 'export PATH=$PATH:/snap/bin' >> ~/.bashrc
+        source ~/.bashrc
+    fi
     
     # Tambahkan user ke group lxd
     sudo usermod -aG lxd $USER
@@ -38,7 +50,7 @@ function clean_install_lxd() {
     
     # Inisialisasi LXD dengan preseed yang lebih sederhana
     show_msg "Menginisialisasi LXD dengan konfigurasi minimal..."
-    cat <<EOF | sudo lxd init --preseed
+    cat <<EOF | lxd init --preseed
 config:
   core.https_address: '[::]:8443'
 storage_pools:
