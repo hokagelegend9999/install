@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Docker Full Uninstall Script
+# Warning: This will completely remove Docker and all containers/images/volumes
+
+echo "=== Docker Full Uninstall ==="
+echo "This script will completely remove Docker and all Docker-related data"
+read -p "Are you sure you want to continue? [y/N] " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted by user."
+    exit 1
+fi
+
+echo "=== Stopping all running containers ==="
+docker stop $(docker ps -aq) 2>/dev/null
+
+echo "=== Removing all containers ==="
+docker rm -f $(docker ps -aq) 2>/dev/null
+
+echo "=== Removing all images ==="
+docker rmi -f $(docker images -q) 2>/dev/null
+
+echo "=== Removing all volumes ==="
+docker volume rm -f $(docker volume ls -q) 2>/dev/null
+
+echo "=== Removing all networks ==="
+docker network rm $(docker network ls -q) 2>/dev/null
+
+echo "=== Pruning all unused Docker objects ==="
+docker system prune -a --volumes -f
+
+echo "=== Uninstalling Docker packages ==="
+sudo apt-get purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+echo "=== Removing Docker configuration files ==="
+sudo rm -rf /var/lib/docker
+sudo rm -rf /var/lib/containerd
+sudo rm -rf /etc/docker
+
+echo "=== Removing Docker user groups ==="
+sudo groupdel docker 2>/dev/null
+
+echo "=== Removing leftover Docker files ==="
+sudo find / -name "*docker*" -exec rm -rf {} \; 2>/dev/null
+
+echo "=== Cleaning up dependencies ==="
+sudo apt-get autoremove -y --purge
+
+echo "=== Docker has been completely removed ==="
+echo "You may want to reboot your system to complete the cleanup."
