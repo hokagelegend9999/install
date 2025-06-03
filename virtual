@@ -1,11 +1,10 @@
 #!/bin/bash
 
 # ==============================================
-# VPN CONTAINER MANAGEMENT SCRIPT
+# VPN CONTAINER MANAGEMENT SCRIPT - FIXED VERSION
 # ==============================================
 
 CONTAINER_NAME="vpn-container"
-HOST_IMAGE="ubuntu:24.04"
 CONTAINER_IMAGE="ubuntu:20.04"
 
 # Fungsi untuk menampilkan pesan
@@ -21,16 +20,16 @@ function show_success() {
     echo -e "\033[1;32m✓ $1\033[0m"
 }
 
-# 1. Install LXD jika belum ada
-function install_lxd() {
+# 1. Install dan setup LXD
+function setup_lxd() {
     if ! command -v lxd &> /dev/null; then
         show_msg "Menginstall LXD..."
         sudo apt update
-        sudo apt install -y lxd lxd-client
+        sudo apt install -y lxd lxd-client zfsutils-linux
         sudo usermod -aG lxd $USER
         newgrp lxd
         
-        # Inisialisasi LXD dengan konfigurasi minimal
+        # Inisialisasi LXD otomatis
         show_msg "Menginisialisasi LXD..."
         cat <<EOF | sudo lxd init --preseed
 config:
@@ -38,7 +37,10 @@ config:
   core.trust_password: ""
 storage_pools:
 - name: default
-  driver: dir
+  driver: zfs
+  config:
+    source: /var/lib/lxd/disks/default.img
+    zfs.pool_name: default
 networks:
 - name: lxdbr0
   type: bridge
@@ -57,103 +59,113 @@ profiles:
       network: lxdbr0
       type: nic
 EOF
-    else
-        show_success "LXD sudah terinstall"
     fi
 }
 
-# 2. Setup container VPN
-function setup_container() {
+# 2. Buat container jika belum ada
+function create_container() {
     if ! lxc list --format csv | grep -q "^$CONTAINER_NAME,"; then
-        show_msg "Membuat container $CONTAINER_NAME dengan image $CONTAINER_IMAGE..."
-        lxc launch $CONTAINER_IMAGE $CONTAINER_NAME
+        show_msg "Membuat container baru..."
         
-        show_msg "Mengkonfigurasi container..."
-        lxc config set $CONTAINER_NAME security.nesting true
-        lxc config set $CONTAINER_NAME security.privileged true
-        lxc config set $CONTAINER_NAME limits.memory 2GB
-        lxc config set $CONTAINER_NAME limits.cpu 2
+        # Download image terlebih dahulu
+        lxc image copy $CONTAINER_IMAGE local: --alias ubuntu-focal --auto-update
         
-        show_msg "Menunggu container siap..."
-        sleep 10
-    fi
-    
-    if ! lxc list --format csv | grep -q "^$CONTAINER_NAME,RUNNING"; then
+        # Buat container dengan konfigurasi
+        lxc init ubuntu-focal $CONTAINER_NAME \
+            --storage default \
+            -c security.nesting=true \
+            -c security.privileged=true \
+            -c limits.memory=2GB \
+            -c limits.cpu=2
+        
         show_msg "Menjalankan container..."
         lxc start $CONTAINER_NAME
-        sleep 5
+        
+        # Tunggu hingga container benar-benar ready
+        show_msg "Menunggu container siap..."
+        sleep 10
+        lxc exec $CONTAINER_NAME -- cloud-init status --wait
     fi
 }
 
 # 3. Setup menu command
-function setup_menu_command() {
-    # Buat script untuk menu
-    cat > ~/.vpn-container-menu.sh <<'EOL'
+function setup_menu() {
+    # Buat script utama
+    cat > /usr/local/bin/vpn-menu <<'EOL'
 #!/bin/bash
 
 CONTAINER_NAME="vpn-container"
 
 function check_container() {
-    if lxc list --format csv | grep -q "^$CONTAINER_NAME,RUNNING"; then
+    if lxc info $CONTAINER_NAME >/dev/null 2>&1; then
+        if [ "$(lxc list -f csv | grep "^$CONTAINER_NAME," | cut -d, -f4)" != "RUNNING" ]; then
+            echo "Starting container..."
+            lxc start $CONTAINER_NAME
+            sleep 3
+        fi
         return 0
     else
-        echo "Container tidak berjalan, menjalankan container..."
-        lxc start $CONTAINER_NAME
-        sleep 3
-        if lxc list --format csv | grep -q "^$CONTAINER_NAME,RUNNING"; then
-            return 0
-        else
-            return 1
-        fi
+        echo "Container $CONTAINER_NAME tidak ditemukan!"
+        echo "Untuk membuat container baru, jalankan:"
+        echo "sudo $(readlink -f "$0") --install"
+        return 1
     fi
 }
 
-if check_container; then
-    echo "Memasuki container $CONTAINER_NAME..."
-    lxc exec $CONTAINER_NAME -- bash
-else
-    echo "Error: Container $CONTAINER_NAME tidak dapat dijalankan"
-    echo "Silakan buat container manual dengan perintah:"
-    echo "lxc launch ubuntu:20.04 $CONTAINER_NAME"
-    exit 1
-fi
+case "$1" in
+    "--install")
+        # Re-run installer
+        exec $(dirname "$0")/vpn-container-install.sh
+        ;;
+    *)
+        if check_container; then
+            echo "Entering container..."
+            lxc exec $CONTAINER_NAME -- bash
+        else
+            exit 1
+        fi
+        ;;
+esac
 EOL
 
-    chmod +x ~/.vpn-container-menu.sh
+    # Buat script installer
+    cat > /usr/local/bin/vpn-container-install.sh <<'EOL'
+#!/bin/bash
+# Ini adalah installer terpisah
+exec $(dirname "$0")/vpn-menu --install
+EOL
 
-    # Setup alias di .bashrc
+    chmod +x /usr/local/bin/vpn-menu
+    chmod +x /usr/local/bin/vpn-container-install.sh
+
+    # Buat alias di bashrc
     if ! grep -q "alias menu=" ~/.bashrc; then
-        echo "alias menu='~/.vpn-container-menu.sh'" >> ~/.bashrc
+        echo "alias menu='vpn-menu'" >> ~/.bashrc
         source ~/.bashrc
     fi
 }
 
-# Main installation
+# Main installation procedure
 show_msg "Memulai instalasi VPN Container..."
 
-# 1. Install LXD
-install_lxd
-
-# 2. Setup container
-setup_container
-
-# 3. Setup menu command
-setup_menu_command
+# Jalankan semua fungsi setup
+setup_lxd
+create_container
+setup_menu
 
 # Verifikasi akhir
 if lxc list --format csv | grep -q "^$CONTAINER_NAME,RUNNING"; then
     show_success "Instalasi berhasil!"
-    echo -e "\nSekarang Anda bisa menggunakan perintah berikut:"
-    echo -e "  \033[1;32mmenu\033[0m      - Masuk ke container VPN"
-    echo -e "  \033[1;32mlxc list\033[0m  - Melihat daftar container"
-    echo -e "\nCukup ketik 'menu' untuk masuk ke container VPN"
+    echo -e "\nSekarang Anda bisa menggunakan:"
+    echo -e "  \033[1;32mmenu\033[0m       - Masuk ke container"
+    echo -e "  \033[1;32mlxc list\033[0m   - Lihat daftar container"
+    echo -e "\nUntuk masuk ke container, cukup ketik 'menu'"
 else
-    show_error "Instalasi gagal. Silakan coba langkah berikut:"
-    echo "1. Periksa koneksi internet"
-    echo "2. Coba buat container manual:"
+    show_error "Instalasi tidak sepenuhnya berhasil"
+    echo "Anda bisa mencoba:"
+    echo "1. Jalankan installer lagi: sudo $0"
+    echo "2. Atau buat container manual:"
     echo "   lxc launch ubuntu:20.04 $CONTAINER_NAME"
-    echo "3. Setel konfigurasi security:"
     echo "   lxc config set $CONTAINER_NAME security.nesting true"
-    echo "   lxc config set $CONTAINER_NAME security.privileged true"
     exit 1
 fi
