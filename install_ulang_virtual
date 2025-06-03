@@ -75,6 +75,10 @@ echo "[7/7] Memperbaiki database paket..."
     apt-get autoclean -y
     rm -rf /var/lib/apt/lists/*
 } > /dev/null 2>&1
+sudo snap remove lxd
+sudo rm -rf /var/snap/lxd
+sudo rm -rf /var/lib/lxd
+sudo rm -rf /etc/lxd
 
 echo -e "\n✅ Uninstall berhasil! LXD telah dihapus sepenuhnya."
 echo "Disarankan untuk reboot sistem: sudo reboot"
