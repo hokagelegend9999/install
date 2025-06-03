@@ -4,146 +4,99 @@
 # SCRIPT INSTALASI CONTAINER LXD - VERSI DEFINITIF
 # ==============================================
 
-# Konfigurasi
+# ... (bagian sebelumnya tetap sama)
+
+# 5. Membuat skrip menu interaktif
+show_msg "5. Membuat skrip menu interaktif..."
+MENU_SCRIPT="/usr/local/bin/vpn-menu"
+
+sudo tee $MENU_SCRIPT > /dev/null <<'EOF'
+#!/bin/bash
+
 CONTAINER_NAME="vpn-container"
-CONTAINER_IMAGE="ubuntu:20.04"
-STORAGE_POOL="default"
-STORAGE_SIZE="10GB"
 
-# Fungsi untuk menampilkan pesan
-function show_msg() {
-    echo -e "\n\033[1;36m>>> $1\033[0m"
+function header() {
+    clear
+    echo "==========================================="
+    echo " VPN CONTAINER MANAGEMENT - $CONTAINER_NAME"
+    echo "==========================================="
 }
 
-function show_error() {
-    echo -e "\n\033[1;31m!!! $1\033[0m"
+function container_status() {
+    STATUS=$(lxc list -c s --format csv $CONTAINER_NAME)
+    if [[ "$STATUS" == "RUNNING" ]]; then
+        echo -e "Status: \033[1;32m$STATUS\033[0m"
+    else
+        echo -e "Status: \033[1;31m$STATUS\033[0m"
+    fi
 }
 
-function show_success() {
-    echo -e "\n\033[1;32m✓ $1\033[0m"
+function main_menu() {
+    header
+    container_status
+    echo -e "\nMenu Utama:"
+    echo "1) Masuk ke Container (Shell)"
+    echo "2) Restart Container"
+    echo "3) Stop Container"
+    echo "4) Start Container"
+    echo "5) Cek Status Container"
+    echo "6) Informasi Container"
+    echo "7) Keluar"
+    echo -e "\nPilih opsi [1-7]: \c"
 }
 
-# 1. Verifikasi dan instal LXD
-show_msg "1. Memverifikasi instalasi LXD..."
-if ! command -v lxd &> /dev/null; then
-    show_msg "Menginstall LXD..."
-    sudo apt update
-    sudo apt install -y lxd lxd-client
-    sudo usermod -aG lxd $USER
-    newgrp lxd
-else
-    show_success "LXD sudah terinstall"
-fi
-
-# 2. Inisialisasi LXD dengan konfigurasi minimal
-show_msg "2. Menginisialisasi LXD..."
-cat <<EOF | sudo lxd init --preseed
-config:
-  core.https_address: '[::]:8443'
-  core.trust_password: ""
-storage_pools:
-- name: ${STORAGE_POOL}
-  driver: dir
-  config:
-    source: /var/lib/lxd/storage-pools/${STORAGE_POOL}
-networks:
-- name: lxdbr0
-  type: bridge
-  config:
-    ipv4.address: auto
-    ipv6.address: none
-profiles:
-- name: default
-  devices:
-    root:
-      path: /
-      pool: ${STORAGE_POOL}
-      type: disk
-    eth0:
-      name: eth0
-      network: lxdbr0
-      type: nic
+while true; do
+    main_menu
+    read choice
+    case $choice in
+        1)
+            echo "Memasuki container..."
+            lxc exec $CONTAINER_NAME -- bash
+            ;;
+        2)
+            echo "Merestart container..."
+            lxc restart $CONTAINER_NAME
+            sleep 2
+            ;;
+        3)
+            echo "Menghentikan container..."
+            lxc stop $CONTAINER_NAME
+            sleep 2
+            ;;
+        4)
+            echo "Menjalankan container..."
+            lxc start $CONTAINER_NAME
+            sleep 2
+            ;;
+        5)
+            echo -e "\nStatus container:"
+            lxc list $CONTAINER_NAME
+            echo -e "\nTekan enter untuk melanjutkan..."
+            read
+            ;;
+        6)
+            echo -e "\nInformasi detail container:"
+            lxc info $CONTAINER_NAME
+            echo -e "\nTekan enter untuk melanjutkan..."
+            read
+            ;;
+        7)
+            echo "Keluar dari menu."
+            exit 0
+            ;;
+        *)
+            echo "Pilihan tidak valid! Silakan pilih 1-7."
+            sleep 2
+            ;;
+    esac
+done
 EOF
 
-# 3. Verifikasi storage pool
-show_msg "3. Memverifikasi storage pool..."
-if ! lxc storage list | grep -q ${STORAGE_POOL}; then
-    show_msg "Membuat storage pool manual..."
-    sudo mkdir -p /var/lib/lxd/storage-pools/${STORAGE_POOL}
-    lxc storage create ${STORAGE_POOL} dir source=/var/lib/lxd/storage-pools/${STORAGE_POOL}
-    
-    if ! lxc storage list | grep -q ${STORAGE_POOL}; then
-        show_error "Gagal membuat storage pool"
-        show_msg "Coba metode alternatif..."
-        sudo rm -rf /var/lib/lxd/storage-pools/${STORAGE_POOL}
-        lxc storage create ${STORAGE_POOL} dir size=${STORAGE_SIZE}
-    fi
-fi
+sudo chmod +x $MENU_SCRIPT
 
-# Verifikasi akhir storage pool
-if ! lxc storage list | grep -q ${STORAGE_POOL}; then
-    show_error "Gagal membuat storage pool setelah beberapa percobaan"
-    show_msg "Silakan coba langkah manual:"
-    echo "1. sudo lxd init"
-    echo "2. Pilih opsi storage manual"
-    echo "3. Buat storage pool dengan nama 'default'"
-    exit 1
-fi
+show_success "Skrip menu berhasil dibuat"
+echo -e "Anda sekarang bisa mengelola container dengan perintah: \033[1;32mvpn-menu\033[0m"
 
-show_success "Storage pool ${STORAGE_POOL} berhasil dibuat"
-
-# 4. Membuat container
-show_msg "4. Membuat container ${CONTAINER_NAME}..."
-
-# Hapus container jika sudah ada
-if lxc list | grep -q ${CONTAINER_NAME}; then
-    show_msg "Menghapus container yang sudah ada..."
-    lxc delete ${CONTAINER_NAME} --force
-fi
-
-# Buat container dengan konfigurasi eksplisit
-show_msg "Mengunduh image ${CONTAINER_IMAGE}..."
-lxc image copy ${CONTAINER_IMAGE} local: --alias ubuntu-focal
-
-show_msg "Membuat container baru..."
-lxc init ubuntu-focal ${CONTAINER_NAME} \
-    --storage ${STORAGE_POOL} \
-    -c security.nesting=true \
-    -c security.privileged=true \
-    -c limits.memory=2GB \
-    -c limits.cpu=2
-
-show_msg "Memulai container..."
-lxc start ${CONTAINER_NAME}
-
-# Verifikasi container berjalan
-if ! lxc list | grep -q "${CONTAINER_NAME}.*RUNNING"; then
-    show_error "Gagal memulai container"
-    show_msg "Mencoba metode alternatif launch..."
-    lxc launch ${CONTAINER_IMAGE} ${CONTAINER_NAME} \
-        --storage ${STORAGE_POOL}
-    
-    if ! lxc list | grep -q "${CONTAINER_NAME}.*RUNNING"; then
-        show_error "Gagal total membuat container"
-        show_msg "Diagnosa terakhir:"
-        echo "Status LXD:"
-        sudo systemctl status lxd --no-pager
-        echo "Log terakhir LXD:"
-        sudo journalctl -u lxd --no-pager -n 20
-        echo "Daftar storage pool:"
-        lxc storage list
-        exit 1
-    fi
-fi
-
-show_success "Container ${CONTAINER_NAME} berhasil dibuat dan berjalan"
-
-# [Lanjutkan dengan bagian konfigurasi container dan port forwarding...]
-# (Gunakan bagian script sebelumnya untuk setup port forwarding dan menu)
-
-show_msg "Instalasi berhasil diselesaikan!"
-echo -e "\nGunakan perintah berikut untuk mengelola container:"
-echo -e "1. Masuk container: \033[1;32mlxc exec ${CONTAINER_NAME} -- bash\033[0m"
-echo -e "2. Monitor container: \033[1;32mlxc info ${CONTAINER_NAME}\033[0m"
-echo -e "3. Stop container: \033[1;32mlxc stop ${CONTAINER_NAME}\033[0m"
-echo -e "4. Start container: \033[1;32mlxc start ${CONTAINER_NAME}\033[0m"
+# ==============================================
+# AKHIR SCRIPT
+# ==============================================
