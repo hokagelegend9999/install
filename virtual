@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # ==============================================
-# VPN CONTAINER FIXER SCRIPT
+# VPN CONTAINER INSTALLER - ALL IN ONE SCRIPT
 # ==============================================
 
+# Konfigurasi
 CONTAINER_NAME="vpn-container"
 CONTAINER_IMAGE="ubuntu:20.04"
+LXD_CHANNEL="latest/stable"
 
 # Fungsi untuk menampilkan pesan
 function show_msg() {
@@ -20,30 +22,58 @@ function show_success() {
     echo -e "\033[1;32m✓ $1\033[0m"
 }
 
-# 1. Perbaikan LXD
-function fix_lxd() {
-    show_msg "Memperbaiki instalasi LXD..."
+# 1. Persiapan sistem
+function system_prep() {
+    show_msg "Memulai persiapan sistem..."
     
-    # Pastikan snap path ada
+    # Update paket
+    sudo apt update
+    sudo apt upgrade -y
+    
+    # Install dependensi
+    sudo apt install -y snapd bridge-utils
+    
+    # Aktifkan snapd
+    sudo systemctl enable --now snapd.socket
+}
+
+# 2. Install dan konfigurasi LXD
+function install_lxd() {
+    show_msg "Menginstal LXD..."
+    
+    # Hapus instalasi lama
+    sudo snap remove --purge lxd 2>/dev/null
+    sudo apt remove --purge lxd lxd-client 2>/dev/null
+    sudo rm -rf /var/snap/lxd
+    sudo rm -rf /var/lib/lxd
+    
+    # Install LXD via snap
+    sudo snap install lxd --channel=$LXD_CHANNEL
+    
+    # Tambahkan path snap
     export PATH=$PATH:/snap/bin
     echo 'export PATH=$PATH:/snap/bin' >> ~/.bashrc
     
-    # Perbaikan group
+    # Setup grup
     sudo usermod -aG lxd $USER
     newgrp lxd
     
-    # Inisialisasi ulang LXD jika perlu
-    if ! lxc network list | grep -q lxdbr0; then
-        show_msg "Menginisialisasi LXD..."
-        cat <<EOF | lxd init --preseed
+    # Inisialisasi LXD
+    show_msg "Menginisialisasi LXD..."
+    cat <<EOF | lxd init --preseed
 config:
   core.https_address: '[::]:8443'
+  core.trust_password: ""
+  images.auto_update_interval: 24
 storage_pools:
 - name: default
   driver: dir
 networks:
 - name: lxdbr0
   type: bridge
+  config:
+    ipv4.address: auto
+    ipv6.address: none
 profiles:
 - name: default
   devices:
@@ -56,11 +86,10 @@ profiles:
       network: lxdbr0
       type: nic
 EOF
-    fi
 }
 
-# 2. Buat container jika belum ada
-function create_container() {
+# 3. Buat dan konfigurasi container
+function setup_container() {
     show_msg "Membuat container $CONTAINER_NAME..."
     
     # Hapus container lama jika ada
@@ -73,6 +102,7 @@ function create_container() {
     lxc launch $CONTAINER_IMAGE $CONTAINER_NAME
     
     # Konfigurasi container
+    show_msg "Mengkonfigurasi container..."
     lxc config set $CONTAINER_NAME security.nesting true
     lxc config set $CONTAINER_NAME security.privileged true
     lxc config set $CONTAINER_NAME limits.memory 2GB
@@ -82,19 +112,13 @@ function create_container() {
     show_msg "Menunggu container siap..."
     sleep 15
     lxc exec $CONTAINER_NAME -- cloud-init status --wait
-    
-    # Verifikasi
-    if ! lxc list | grep -q "$CONTAINER_NAME.*RUNNING"; then
-        lxc start $CONTAINER_NAME
-        sleep 5
-    fi
 }
 
-# 3. Perbaikan menu
-function fix_menu() {
-    show_msg "Memperbaiki menu akses..."
+# 4. Setup menu akses
+function setup_menu() {
+    show_msg "Membuat menu akses container..."
     
-    # Buat script menu baru
+    # Buat script menu
     sudo tee /usr/local/bin/vpn-menu > /dev/null <<'EOL'
 #!/bin/bash
 
@@ -106,11 +130,12 @@ if ! lxc list --format csv | grep -q "^$CONTAINER_NAME,"; then
     sudo lxc launch ubuntu:20.04 $CONTAINER_NAME
     sudo lxc config set $CONTAINER_NAME security.nesting true
     sudo lxc config set $CONTAINER_NAME security.privileged true
-    sleep 10
+    sleep 15
 fi
 
 # Start container jika belum running
-if [ "$(lxc list -f csv | grep "^$CONTAINER_NAME," | cut -d, -f4)" != "RUNNING" ]; then
+CONTAINER_STATUS=$(lxc list -f csv | grep "^$CONTAINER_NAME," | cut -d, -f4)
+if [ "$CONTAINER_STATUS" != "RUNNING" ]; then
     echo "Menjalankan container $CONTAINER_NAME..."
     lxc start $CONTAINER_NAME
     sleep 5
@@ -122,30 +147,55 @@ EOL
 
     sudo chmod +x /usr/local/bin/vpn-menu
     
-    # Update alias
-    echo "alias menu='vpn-menu'" >> ~/.bashrc
+    # Buat alias
+    if ! grep -q "alias menu=" ~/.bashrc; then
+        echo "alias menu='vpn-menu'" >> ~/.bashrc
+    fi
+    
     source ~/.bashrc
 }
 
-# Main process
-show_msg "Memulai proses perbaikan..."
+# 5. Optimasi KVM
+function optimize_kvm() {
+    show_msg "Mengoptimalkan KVM support..."
+    
+    # Load modul KVM
+    sudo modprobe kvm
+    
+    # Untuk Intel atau AMD
+    if grep -q "Intel" /proc/cpuinfo; then
+        sudo modprobe kvm_intel
+        echo "kvm_intel" | sudo tee -a /etc/modules
+    elif grep -q "AMD" /proc/cpuinfo; then
+        sudo modprobe kvm_amd
+        echo "kvm_amd" | sudo tee -a /etc/modules
+    fi
+    
+    echo "kvm" | sudo tee -a /etc/modules
+}
 
-# Jalankan perbaikan
-fix_lxd
-create_container
-fix_menu
+# Main installation
+show_msg "Memulai instalasi VPN Container..."
+
+# Jalankan semua fungsi
+system_prep
+install_lxd
+setup_container
+setup_menu
+optimize_kvm
 
 # Verifikasi akhir
 if lxc list --format csv | grep -q "^$CONTAINER_NAME,RUNNING"; then
-    show_success "PERBAIKAN BERHASIL!"
+    show_success "INSTALASI BERHASIL!"
     echo -e "\nSekarang Anda bisa menggunakan:"
-    echo -e "  \033[1;32mmenu\033[0m - Untuk masuk ke container"
+    echo -e "  \033[1;32mmenu\033[0m       - Untuk masuk ke container"
+    echo -e "  \033[1;32mlxc list\033[0m   - Untuk melihat daftar container"
+    echo -e "\nCukup ketik 'menu' untuk masuk ke container VPN"
 else
-    show_error "Perbaikan gagal. Coba langkah manual:"
-    echo "1. Buat container manual:"
-    echo "   lxc launch ubuntu:20.04 vpn-container"
-    echo "2. Konfigurasi:"
-    echo "   lxc config set vpn-container security.nesting true"
-    echo "3. Coba akses:"
-    echo "   lxc exec vpn-container -- bash"
+    show_error "Instalasi gagal. Silakan coba langkah berikut:"
+    echo "1. Jalankan installer lagi:"
+    echo "   sudo $(readlink -f "$0")"
+    echo "2. Atau buat container manual:"
+    echo "   lxc launch ubuntu:20.04 $CONTAINER_NAME"
+    exit 1
 fi
