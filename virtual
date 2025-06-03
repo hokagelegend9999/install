@@ -1,139 +1,137 @@
 #!/bin/bash
 
-# Cek apakah sudah root
-if [ "$(id -u)" -ne 0 ]; then
-  echo "❌ Harap jalankan script ini sebagai root (sudo)"
-  exit 1
-fi
+# ==============================================
+# Script Instalasi Container LXD untuk VPN Services
+# Dengan Fitur Menu Masuk/Keluar Container
+# ==============================================
 
-# Fungsi untuk menangani error container
-handle_container_error() {
-  local container=$1
-  
-  echo "⏳ Mencoba memperbaiki container $container..."
-  
-  # Gunakan perintah lengkap dengan path
-  /snap/bin/lxc stop $container --force 2>/dev/null
-  /snap/bin/lxc delete $container --force 2>/dev/null
-  /snap/bin/lxc delete $container/* --force 2>/dev/null
-  /snap/bin/lxc image delete ubuntu/20.04 2>/dev/null
-  /snap/bin/lxc storage delete default --force 2>/dev/null
-  /snap/bin/lxc storage create default dir source=/var/lib/lxd/storage-pools/default
-  
-  echo "♻️ Membuat ulang container $container..."
-  /snap/bin/lxc launch ubuntu:20.04 $container
+# Fungsi untuk menampilkan pesan status
+function status_msg() {
+    echo -e "\n\033[1;32m>>> $1\033[0m\n"
 }
 
-# ========== [1] PERBAIKI SNAP & INSTALL LXD ==========
-echo "[*] Memperbaiki lingkungan snap..."
-sudo snap remove lxd --purge
-sudo snap remove core20 --purge
-sudo snap remove snapd --purge
+# Fungsi untuk menampilkan pesan error
+function error_msg() {
+    echo -e "\n\033[1;31m!!! $1\033[0m\n"
+}
 
-echo "[*] Re-install snapd..."
-sudo apt update
-sudo apt install -y --reinstall snapd
-sudo systemctl enable --now snapd.socket
-sudo ln -s /var/lib/snapd/snap /snap
-
-echo "[*] Install LXD versi stabil..."
-sudo snap install lxd --stable
-
-# Pastikan PATH termasuk snap
-export PATH=$PATH:/snap/bin
-
-# ========== [2] INIT LXD ==========
-echo "[*] Inisialisasi LXD..."
-if ! /snap/bin/lxc storage list | grep -q default; then
-  cat <<EOF | /snap/bin/lxd init --preseed
-config:
-  core.https_address: '[::]:8443'
-  core.trust_password: "password"
-storage_pools:
-- name: default
-  driver: dir
-networks:
-- name: lxdbr0
-  type: bridge
-  config:
-    ipv4.address: auto
-    ipv6.address: none
-profiles:
-- name: default
-  devices:
-    root:
-      path: /
-      pool: default
-      type: disk
-    eth0:
-      name: eth0
-      network: lxdbr0
-      type: nic
-EOF
+# 1. Install LXD jika belum terinstall
+status_msg "1. Memeriksa dan menginstall LXD..."
+if ! command -v lxd &> /dev/null; then
+    sudo apt update
+    sudo apt install -y lxd
+    sudo lxd init --minimal
 else
-  echo "ℹ️ Profile default sudah ada"
+    echo "LXD sudah terinstall, melanjutkan..."
 fi
 
-# ========== [3] SETUP CONTAINER ==========
-CONTAINER="legacy-script-env"
+# 2. Membuat container
+CONTAINER_NAME="vpn-container"
+status_msg "2. Membuat container Ubuntu 20.04 ($CONTAINER_NAME)..."
+lxc launch ubuntu:20.04 $CONTAINER_NAME
 
-echo "[*] Membuat container Ubuntu 20.04 bernama '$CONTAINER'..."
-if ! /snap/bin/lxc launch ubuntu:20.04 "$CONTAINER"; then
-  echo "❌ Gagal membuat container, mencoba perbaikan..."
-  handle_container_error "$CONTAINER"
-fi
+# 3. Menunggu container siap
+status_msg "3. Menunggu container siap..."
+sleep 10
 
-echo "[*] Menunggu container aktif..."
-sleep 30  # Beri waktu lebih lama
+# 4. Konfigurasi dasar container
+status_msg "4. Konfigurasi dasar container..."
+lxc exec $CONTAINER_NAME -- bash -c "apt update && apt upgrade -y"
+lxc exec $CONTAINER_NAME -- bash -c "apt install -y wget curl nano iptables net-tools"
 
-if ! /snap/bin/lxc list "$CONTAINER" | grep -q RUNNING; then
-  echo "⚠️ Container tidak berjalan, mencoba memulai ulang..."
-  /snap/bin/lxc start "$CONTAINER"
-  sleep 20
-fi
+# 5. Setup port forwarding
+status_msg "5. Setup port forwarding..."
 
-if ! /snap/bin/lxc list "$CONTAINER" | grep -q RUNNING; then
-  echo "❌ Gagal menjalankan container. Log error:"
-  /snap/bin/lxc info "$CONTAINER" --show-log
-  exit 1
-fi
+# Xray ports (sesuaikan dengan kebutuhan)
+lxc config device add $CONTAINER_NAME xray-http proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
+lxc config device add $CONTAINER_NAME xray-ssl proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
 
-# ========== [4] CONTAINER SETUP ==========
-echo "[*] Menyiapkan dependensi di dalam container..."
-/snap/bin/lxc exec "$CONTAINER" -- bash -c "
-  apt update -y && apt upgrade -y
-  apt install -y python2 gcc make curl wget unzip zip screen gnupg net-tools iproute2 iptables dropbear cron htop iftop rsyslog bzip2 gzip dos2unix nano vim mc git cmake libreadline-dev zlib1g-dev libssl-dev libsqlite3-dev libxml-parser-perl python3 python3-pip ruby jq bc
-" || echo "⚠️ Beberapa paket gagal diinstall, melanjutkan..."
+# SSHWS port
+lxc config device add $CONTAINER_NAME sshws proxy listen=tcp:0.0.0.0:2222 connect=tcp:127.0.0.1:2222
 
-# ========== [5] MENU COMMAND FIX ==========
-echo "[*] Membuat shortcut 'menu' yang benar..."
-sudo tee /usr/local/bin/menu > /dev/null <<'EOF'
-#!/bin/bash
-/snap/bin/lxc exec legacy-script-env -- bash
+# Dropbear port
+lxc config device add $CONTAINER_NAME dropbear proxy listen=tcp:0.0.0.0:109 connect=tcp:127.0.0.1:109
+
+# PPTP port
+lxc config device add $CONTAINER_NAME pptp proxy listen=tcp:0.0.0.0:1723 connect=tcp:127.0.0.1:1723
+
+# L2TP port (UDP)
+lxc config device add $CONTAINER_NAME l2tp-udp proxy listen=udp:0.0.0.0:1701 connect=udp:127.0.0.1:1701
+
+# 6. Konfigurasi network tambahan
+status_msg "6. Konfigurasi network container..."
+lxc config device set $CONTAINER_NAME eth0 security.ipv4_filtering=false
+lxc config device set $CONTAINER_NAME eth0 security.ipv6_filtering=false
+
+# 7. Membuat direktori untuk script
+status_msg "7. Membuat direktori untuk script di container..."
+lxc exec $CONTAINER_NAME -- mkdir -p /root/vpn-scripts
+
+# 8. Setup fungsi menu di .bashrc
+status_msg "8. Setup fungsi menu di .bashrc..."
+
+# Backup .bashrc
+cp ~/.bashrc ~/.bashrc.bak
+
+# Tambahkan fungsi menu
+cat << 'EOF' >> ~/.bashrc
+
+# ==============================================
+# Fungsi untuk container LXD $CONTAINER_NAME
+# ==============================================
+function menu() {
+    # Cek apakah container ada
+    if ! lxc list | grep -q "$CONTAINER_NAME"; then
+        echo "Container $CONTAINER_NAME tidak ditemukan!"
+        return 1
+    fi
+    
+    # Cek status container
+    CONTAINER_STATUS=$(lxc list "$CONTAINER_NAME" -c s --format=csv)
+    
+    if [ "$CONTAINER_STATUS" != "RUNNING" ]; then
+        echo "Container tidak berjalan, menjalankan container..."
+        lxc start "$CONTAINER_NAME"
+        sleep 3  # Tunggu container boot
+    fi
+    
+    if [ -z "$LXD_CONTAINER_ACTIVE" ]; then
+        echo "Memasuki container $CONTAINER_NAME..."
+        export LXD_CONTAINER_ACTIVE=1
+        export PS1="(container:$CONTAINER_NAME) $PS1"  # Tambah penanda di prompt
+        lxc exec "$CONTAINER_NAME" -- /bin/bash
+        unset LXD_CONTAINER_ACTIVE
+        export PS1=${PS1#"(container:$CONTAINER_NAME) "}  # Hapus penanda
+    else
+        echo "Anda sudah berada dalam container. Ketik 'exit' untuk keluar."
+    fi
+}
+
+alias masukcontainer='menu'
 EOF
-sudo chmod +x /usr/local/bin/menu
 
-# Tambahkan ke .bashrc root
-if ! grep -q "alias menu=" /root/.bashrc; then
-  echo "alias menu='/snap/bin/lxc exec legacy-script-env -- bash'" >> /root/.bashrc
-  source /root/.bashrc
-fi
+# 9. Load .bashrc
+source ~/.bashrc
 
-# ========== [6] DOWNLOAD & RUN PORT FORWARDING SCRIPT ==========
-echo "[*] Mendownload dan menjalankan script port forwarding..."
-wget -q -O /tmp/port.sh "https://github.com/hokagelegend9999/install/raw/main/port.sh"
-chmod +x /tmp/port.sh
+# 10. Informasi final
+status_msg "9. Instalasi selesai!"
+echo -e "\n\033[1;32mCONTAINER VPN BERHASIL DIBUAT!\033[0m"
+echo -e "Container Name: \033[1;34m$CONTAINER_NAME\033[0m"
+echo -e "Port Forwarding:"
+echo -e " - Xray: 80, 443/tcp"
+echo -e " - SSHWS: 2222/tcp"
+echo -e " - Dropbear: 109/tcp"
+echo -e " - PPTP: 1723/tcp"
+echo -e " - L2TP: 1701/udp"
 
-# Jalankan script port forwarding
-sudo /tmp/port.sh
+echo -e "\n\033[1;33mPERINTAH PENGGUNAAN:\033[0m"
+echo -e "1. Untuk masuk ke container:"
+echo -e "   \033[1;35mmenu\033[0m atau \033[1;35mmasukcontainer\033[0m"
+echo -e "2. Untuk keluar dari container:"
+echo -e "   \033[1;35mexit\033[0m"
+echo -e "3. Untuk transfer script ke container:"
+echo -e "   \033[1;35mlxc file push <file> $CONTAINER_NAME/root/vpn-scripts/\033[0m"
+echo -e "4. Verifikasi port forwarding:"
+echo -e "   \033[1;35msudo netstat -tulnp | grep lxd\033[0m"
 
-# ========== [7] FINALIZATION ==========
-echo ""
-echo "✅ INSTALASI BERHASIL!"
-echo "➡️ Ketik 'menu' untuk masuk ke container"
-echo "🔌 Port forwarding diatur oleh script port.sh"
-echo ""
-echo "💡 Tips:"
-echo "1. Untuk akses root di container: /snap/bin/lxc exec $CONTAINER -- bash"
-echo "2. Cek status container: /snap/bin/lxc list"
-echo "3. Backup container: /snap/bin/lxc export $CONTAINER backup.tar.gz"
+echo -e "\n\033[1;32mSISTEM SIAP DIGUNAKAN!\033[0m"
