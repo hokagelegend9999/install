@@ -2,7 +2,7 @@
 
 # ==============================================
 # Script Instalasi Container LXD untuk VPN Services
-# Dengan Fitur Menu Masuk/Keluar Container
+# Dengan perbaikan untuk masalah storage
 # ==============================================
 
 # Fungsi untuk menampilkan pesan status
@@ -20,58 +20,94 @@ status_msg "1. Memeriksa dan menginstall LXD..."
 if ! command -v lxd &> /dev/null; then
     sudo apt update
     sudo apt install -y lxd
-    sudo lxd init --minimal
+    sudo lxd init --auto --storage-backend=dir --storage-create-loop=10
 else
     echo "LXD sudah terinstall, melanjutkan..."
 fi
 
-# 2. Membuat container
+# 2. Membuat container dengan konfigurasi storage yang jelas
 CONTAINER_NAME="vpn-container"
 status_msg "2. Membuat container Ubuntu 20.04 ($CONTAINER_NAME)..."
-lxc launch ubuntu:20.04 $CONTAINER_NAME
+
+# Hapus container jika sudah ada dengan nama yang sama
+if lxc list | grep -q "$CONTAINER_NAME"; then
+    status_msg "Menghapus container yang sudah ada..."
+    lxc delete "$CONTAINER_NAME" --force
+fi
+
+# Buat container dengan konfigurasi storage eksplisit
+lxc launch ubuntu:20.04 "$CONTAINER_NAME" \
+    -c security.nesting=true \
+    -c security.privileged=true \
+    -c limits.memory=1GB \
+    -c limits.cpu=1 \
+    --storage default
+
+# Verifikasi container berhasil dibuat
+if ! lxc list | grep -q "$CONTAINER_NAME"; then
+    error_msg "Gagal membuat container! Mencoba alternatif..."
+    
+    # Coba metode alternatif
+    lxc init ubuntu:20.04 "$CONTAINER_NAME" \
+        --storage default \
+        -c security.nesting=true
+    
+    lxc start "$CONTAINER_NAME"
+    
+    if ! lxc list | grep -q "$CONTAINER_NAME"; then
+        error_msg "Gagal membuat container. Silakan periksa konfigurasi LXD Anda."
+        exit 1
+    fi
+fi
 
 # 3. Menunggu container siap
 status_msg "3. Menunggu container siap..."
-sleep 10
+sleep 15  # Waktu tunggu lebih lama
 
 # 4. Konfigurasi dasar container
 status_msg "4. Konfigurasi dasar container..."
-lxc exec $CONTAINER_NAME -- bash -c "apt update && apt upgrade -y"
-lxc exec $CONTAINER_NAME -- bash -c "apt install -y wget curl nano iptables net-tools"
+lxc exec "$CONTAINER_NAME" -- bash -c "apt update && apt upgrade -y"
+lxc exec "$CONTAINER_NAME" -- bash -c "apt install -y wget curl nano iptables net-tools ufw"
 
 # 5. Setup port forwarding
 status_msg "5. Setup port forwarding..."
 
-# Xray ports (sesuaikan dengan kebutuhan)
-lxc config device add $CONTAINER_NAME xray-http proxy listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80
-lxc config device add $CONTAINER_NAME xray-ssl proxy listen=tcp:0.0.0.0:443 connect=tcp:127.0.0.1:443
+# Daftar port dan nama device
+declare -A PORTS=(
+    ["xray-http"]="80/tcp"
+    ["xray-ssl"]="443/tcp"
+    ["sshws"]="2222/tcp"
+    ["dropbear"]="109/tcp"
+    ["pptp"]="1723/tcp"
+    ["l2tp"]="1701/udp"
+)
 
-# SSHWS port
-lxc config device add $CONTAINER_NAME sshws proxy listen=tcp:0.0.0.0:2222 connect=tcp:127.0.0.1:2222
-
-# Dropbear port
-lxc config device add $CONTAINER_NAME dropbear proxy listen=tcp:0.0.0.0:109 connect=tcp:127.0.0.1:109
-
-# PPTP port
-lxc config device add $CONTAINER_NAME pptp proxy listen=tcp:0.0.0.0:1723 connect=tcp:127.0.0.1:1723
-
-# L2TP port (UDP)
-lxc config device add $CONTAINER_NAME l2tp-udp proxy listen=udp:0.0.0.0:1701 connect=udp:127.0.0.1:1701
+# Setup port forwarding
+for device in "${!PORTS[@]}"; do
+    port_proto="${PORTS[$device]}"
+    port="${port_proto%%/*}"
+    proto="${port_proto##*/}"
+    
+    status_msg "Setting up $device ($port/$proto)..."
+    lxc config device add "$CONTAINER_NAME" "$device" proxy \
+        listen="${proto}:0.0.0.0:${port}" \
+        connect="${proto}:127.0.0.1:${port}"
+done
 
 # 6. Konfigurasi network tambahan
 status_msg "6. Konfigurasi network container..."
-lxc config device set $CONTAINER_NAME eth0 security.ipv4_filtering=false
-lxc config device set $CONTAINER_NAME eth0 security.ipv6_filtering=false
+lxc config device set "$CONTAINER_NAME" eth0 security.ipv4_filtering=false
+lxc config device set "$CONTAINER_NAME" eth0 security.ipv6_filtering=false
 
 # 7. Membuat direktori untuk script
 status_msg "7. Membuat direktori untuk script di container..."
-lxc exec $CONTAINER_NAME -- mkdir -p /root/vpn-scripts
+lxc exec "$CONTAINER_NAME" -- mkdir -p /root/vpn-scripts
 
 # 8. Setup fungsi menu di .bashrc
 status_msg "8. Setup fungsi menu di .bashrc..."
 
 # Backup .bashrc
-cp ~/.bashrc ~/.bashrc.bak
+[ -f ~/.bashrc ] && cp ~/.bashrc ~/.bashrc.bak
 
 # Tambahkan fungsi menu
 cat << 'EOF' >> ~/.bashrc
@@ -92,7 +128,7 @@ function menu() {
     if [ "$CONTAINER_STATUS" != "RUNNING" ]; then
         echo "Container tidak berjalan, menjalankan container..."
         lxc start "$CONTAINER_NAME"
-        sleep 3  # Tunggu container boot
+        sleep 5  # Tunggu container boot
     fi
     
     if [ -z "$LXD_CONTAINER_ACTIVE" ]; then
@@ -117,12 +153,10 @@ source ~/.bashrc
 status_msg "9. Instalasi selesai!"
 echo -e "\n\033[1;32mCONTAINER VPN BERHASIL DIBUAT!\033[0m"
 echo -e "Container Name: \033[1;34m$CONTAINER_NAME\033[0m"
-echo -e "Port Forwarding:"
-echo -e " - Xray: 80, 443/tcp"
-echo -e " - SSHWS: 2222/tcp"
-echo -e " - Dropbear: 109/tcp"
-echo -e " - PPTP: 1723/tcp"
-echo -e " - L2TP: 1701/udp"
+echo -e "Port Forwarding yang aktif:"
+for device in "${!PORTS[@]}"; do
+    echo -e " - ${device}: ${PORTS[$device]}"
+done
 
 echo -e "\n\033[1;33mPERINTAH PENGGUNAAN:\033[0m"
 echo -e "1. Untuk masuk ke container:"
@@ -133,5 +167,13 @@ echo -e "3. Untuk transfer script ke container:"
 echo -e "   \033[1;35mlxc file push <file> $CONTAINER_NAME/root/vpn-scripts/\033[0m"
 echo -e "4. Verifikasi port forwarding:"
 echo -e "   \033[1;35msudo netstat -tulnp | grep lxd\033[0m"
+
+echo -e "\n\033[1;36mCATATAN PENTING:\033[0m"
+echo -e "1. Jika sebelumnya gagal, pastikan tidak ada konflik storage:"
+echo -e "   \033[1;35mlxc storage list\033[0m"
+echo -e "2. Untuk troubleshooting storage:"
+echo -e "   \033[1;35mlxc storage info default\033[0m"
+echo -e "3. Jika perlu menghapus container:"
+echo -e "   \033[1;35mlxc delete $CONTAINER_NAME --force\033[0m"
 
 echo -e "\n\033[1;32mSISTEM SIAP DIGUNAKAN!\033[0m"
