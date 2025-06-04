@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+echo "📦 Menghentikan dan menghapus LXD versi Snap (jika ada)..."
+if snap list | grep -q lxd; then
+    echo "🛑 Stop Snap LXD..."
+    sudo snap stop lxd || true
+    echo "🗑️ Remove Snap LXD..."
+    sudo snap remove --purge lxd || true
+    sudo rm -rf /var/snap/lxd
+    sudo rm -rf ~/snap/lxd
+fi
+
+echo "📦 Menghapus LXD versi APT (jika ada)..."
+sudo systemctl stop lxd || true
+sudo systemctl stop lxd.socket || true
+sudo apt purge -y lxd lxd-client lxd-agent-loader lxd-installer || true
+sudo apt autoremove -y --purge
+
+echo "🧹 Menghapus file dan konfigurasi terkait..."
+sudo rm -rf /var/lib/lxd
+sudo rm -rf /etc/lxd
+sudo rm -rf ~/.config/lxc
+sudo rm -f /usr/sbin/lxd /usr/sbin/lxc
+sudo ip link delete lxdbr0 2>/dev/null || true
+
+echo "🔄 Membersihkan cache shell..."
+hash -r
+
+echo "✅ LXD telah dihapus bersih dari sistem."
