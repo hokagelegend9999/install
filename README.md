@@ -42,6 +42,14 @@ rm install_ulang_virtual
 cd root
 rm install_ulang_virtual
    ```
+
+```
+cd root
+rm remove_virtual
+   wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/remove_virtual && chmod +x remove_virtual && ./remove_virtual
+cd root
+rm remove_virtual
+```
 ## 🚀 ALPHA SCRIPT
 
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
