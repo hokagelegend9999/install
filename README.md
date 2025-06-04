@@ -178,7 +178,7 @@ ms-dns 8.8.4.4
 ### INSTALL SCRIPT 
 
 ```
-apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/coklat/refs/heads/main/install.sh && chmod +x install.sh && ./install.sh
+apt install -y && apt update -y && apt upgrade -y && wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/coklat && chmod +x coklat && ./coklat
 ```
 
 
@@ -219,6 +219,8 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 wget -q  https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/update_humble &&  chmod +x update_humble && ./update_humble
 ```
 
+sudo apt install socat -y
+sudo apt install netcat -y
 ---------------------------------------------------------------------------------------
 
 
