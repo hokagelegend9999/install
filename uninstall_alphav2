@@ -1,0 +1,1207 @@
+#!/bin/bash
+
+# Color Codes
+Green="\e[92;1m"
+RED="\033[31m"
+YELLOW="\033[33m"
+BLUE="\033[36m"
+FONT="\033[0m"
+GREENBG="\033[42;37m"
+REDBG="\033[41;37m"
+OK="${Green}--->${FONT}"
+ERROR="${RED}[ERROR]${FONT}"
+WARN="${YELLOW}[WARNING]${FONT}"
+NC='\e[0m' # No Color
+
+# Function to print messages
+function print_ok() {
+    echo -e "${OK} ${BLUE}$1${FONT}"
+}
+
+function print_error() {
+    echo -e "${ERROR} ${REDBG}$1${FONT}"
+}
+
+function print_warn() {
+    echo -e "${WARN} $1${FONT}"
+}
+
+function print_uninstall() {
+    echo -e "${YELLOW}=======================================${FONT}"
+    echo -e "${YELLOW} # $1 ${FONT}"
+    echo -e "${YELLOW}=======================================${FONT}"
+    sleep 1
+}
+
+# Check if running as root
+if [ "${EUID}" -ne 0 ]; then
+    print_error "You need to run this script as root."
+    exit 1
+fi
+
+clear
+echo -e "${RED}####################################################################${NC}"
+echo -e "${RED}# ${YELLOW}           WELCOME TO HOKAGE LEGEND VPN UNINSTALLER             ${RED}#${NC}"
+echo -e "${RED}# ${YELLOW} This script will attempt to remove components installed by the   ${RED}#${NC}"
+echo -e "${RED}# ${YELLOW}             Hokage Legend VPN installation script.             ${RED}#${NC}"
+echo -e "${RED}#                                                                  ${RED}#${NC}"
+echo -e "${RED}# ${WARN} IMPORTANT: BACK UP YOUR DATA BEFORE PROCEEDING!              ${RED}#${NC}"
+echo -e "${RED}# ${WARN} This script will remove packages, files, and configurations. ${RED}#${NC}"
+echo -e "${RED}####################################################################${NC}"
+echo ""
+read -p "$(echo -e "Press ${GRAY}[ ${NC}${Green}Enter${NC} ${GRAY}]${NC} to continue, or ${RED}Ctrl+C${NC} to abort.")"
+
+# --------------------------------------
+# Stop Services
+# --------------------------------------
+print_uninstall "Stopping services..."
+SERVICES_SYSTEMD=(
+    nginx xray runn haproxy dropbear openvpn cron ws fail2ban vnstat
+    udp-mini-1 udp-mini-2 udp-mini-3 rc-local netfilter-persistent noobzvpns
+    # Add other custom services if known
+)
+SERVICES_INITD=(
+    ssh # sshd is usually managed by systemd now, but good to check
+    # Add other init.d services if known
+)
+
+for service in "${SERVICES_SYSTEMD[@]}"; do
+    if systemctl list-units --type=service --all | grep -Fq "$service.service"; then
+        print_ok "Stopping $service..."
+        systemctl stop "$service" || print_warn "Failed to stop $service or already stopped."
+        systemctl disable "$service" || print_warn "Failed to disable $service or already disabled."
+    else
+        print_warn "$service.service not found."
+    fi
+done
+
+for service in "${SERVICES_INITD[@]}"; do
+    if [ -f "/etc/init.d/$service" ]; then
+        print_ok "Stopping $service (init.d)..."
+        /etc/init.d/"$service" stop || print_warn "Failed to stop $service (init.d) or already stopped."
+    fi
+done
+
+# Stop Xray via its own install script (if method is known and preferred)
+if [ -f /usr/local/bin/xray ]; then
+    print_ok "Attempting to stop Xray via install script..."
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove --purge || print_warn "Xray removal script failed or Xray not installed via this method."
+fi
+
+# Stop SlowDNS if a known process name exists (e.g., 'slowdns_server')
+# This is a guess, as the installer uses a generic 'nameserver' script
+if pgrep -f "server.py" > /dev/null || pgrep -f "dns.py" > /dev/null ; then # Common names for python based slowdns
+    print_ok "Attempting to stop SlowDNS processes..."
+    pkill -f "server.py"
+    pkill -f "dns.py"
+fi
+
+
+# --------------------------------------
+# Remove Packages
+# --------------------------------------
+print_uninstall "Removing installed packages..."
+PACKAGES_APT=(
+    haproxy nginx ruby wondershaper zip pwgen openssl netcat socat cron bash-completion figlet ntpdate sudo
+    debconf-utils speedtest-cli vnstat libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev
+    libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev bc rsyslog
+    dos2unix zlib1g-dev libssl-dev libsqlite3-dev sed dirmngr libxml-parser-perl build-essential gcc g++ python
+    htop lsof tar wget curl python3-pip libc6 util-linux msmtp-mta ca-certificates bsd-mailx iptables
+    iptables-persistent netfilter-persistent net-tools gnupg gnupg2 lsb-release shc cmake git screen
+    xz-utils apt-transport-https gnupg1 dnsutils chrony jq openvpn easy-rsa dropbear rclone fail2ban gotop
+    # Add packages installed by sub-scripts if known
+)
+
+for pkg in "${PACKAGES_APT[@]}"; do
+    if dpkg -s "$pkg" &> /dev/null; then
+        print_ok "Removing $pkg..."
+        apt-get remove --purge -y "$pkg" || print_warn "Failed to remove $pkg."
+    else
+        print_warn "$pkg not installed."
+    fi
+done
+
+if command -v gem &> /dev/null; then
+    if gem list | grep -q "lolcat"; then
+        print_ok "Uninstalling lolcat gem..."
+        gem uninstall lolcat -x || print_warn "Failed to uninstall lolcat gem."
+    else
+        print_warn "lolcat gem not installed."
+    fi
+else
+    print_warn "Ruby gem command not found, skipping lolcat uninstall."
+fi
+
+apt-get autoremove -y
+apt-get clean -y
+
+# --------------------------------------
+# Remove PPA and Repositories
+# --------------------------------------
+print_uninstall "Removing PPA/Repositories..."
+# For Ubuntu (haproxy PPA)
+if [ -f /etc/os-release ] && grep -q "ubuntu" /etc/os-release; then
+    if grep -q "vbernat/haproxy-2.0" /etc/apt/sources.list /etc/apt/sources.list.d/*; then
+        print_ok "Removing ppa:vbernat/haproxy-2.0..."
+        add-apt-repository --remove ppa:vbernat/haproxy-2.0 -y || print_warn "Failed to remove haproxy PPA."
+    fi
+fi
+# For Debian (haproxy.list)
+if [ -f /etc/apt/sources.list.d/haproxy.list ]; then
+    print_ok "Removing /etc/apt/sources.list.d/haproxy.list..."
+    rm -f /etc/apt/sources.list.d/haproxy.list || print_warn "Failed to remove haproxy.list."
+fi
+apt-get update -y
+
+# --------------------------------------
+# Remove Files and Directories
+# --------------------------------------
+print_uninstall "Removing files and directories..."
+DIRECTORIES_TO_REMOVE=(
+    /etc/xray
+    /var/log/xray
+    /var/lib/kyt
+    /etc/vmess
+    /etc/vless
+    /etc/trojan
+    /etc/shadowsocks
+    # /etc/ssh # System directory, do not remove. Configs will be handled separately.
+    /etc/bot
+    /usr/bin/xray # This might be a directory or symlink
+    /usr/local/etc/xray # Xray default config location
+    /var/www/html/* # Remove content, not html dir itself if other apps use it. Be cautious.
+                    # For this script, assuming it's dedicated.
+    /etc/kyt/limit
+    /etc/limit
+    /etc/user-create
+    /run/xray
+    /root/.acme.sh
+    /usr/local/kyt
+    /usr/local/ddos # For DDoS Deflate
+    /opt/noobzvpns # Assuming noobzvpns installs here
+    # Directories created by menu scripts if known
+)
+FILES_TO_REMOVE=(
+    /root/domain
+    /var/lib/kyt/ipvps.conf
+    /usr/local/bin/xray # Xray binary
+    /etc/systemd/system/xray.service
+    /etc/systemd/system/runn.service
+    /etc/haproxy/haproxy.cfg
+    /etc/nginx/conf.d/xray.conf
+    /etc/nginx/nginx.conf # Revert to default or remove if only for this script
+    /etc/haproxy/hap.pem
+    /etc/pam.d/common-password # Revert this carefully or restore backup
+    /etc/systemd/system/rc-local.service
+    # /etc/rc.local # Revert changes, don't just delete
+    /etc/systemd/system/udp-mini-1.service
+    /etc/systemd/system/udp-mini-2.service
+    /etc/systemd/system/udp-mini-3.service
+    /tmp/nameserver
+    /root/install.log
+    # /etc/ssh/sshd_config # Revert changes, don't just delete
+    # /etc/default/dropbear # Revert changes, don't just delete
+    /root/.config/rclone/rclone.conf
+    /home/limit
+    /etc/msmtprc
+    /etc/ipserver
+    /swapfile
+    /etc/kyt.txt
+    /usr/bin/ws
+    /usr/bin/tun.conf
+    /etc/systemd/system/ws.service
+    /usr/local/share/xray/geosite.dat
+    /usr/local/share/xray/geoip.dat
+    /usr/sbin/ftvpn
+    /usr/local/sbin/menu # Assuming 'menu' is the main menu script, others might be there too
+                         # List all menu scripts explicitly if known
+    /usr/local/sbin/xp
+    /usr/local/sbin/clearlog
+    /usr/local/sbin/limit-ip
+    /usr/local/sbin/limit-ip-ssh
+    /usr/bin/limit-ip # Another limit-ip script
+    /root/.info/.isp
+    /root/.info/.city
+    /home/daily_reboot
+    /root/log-install.txt
+    /usr/bin/user
+    /usr/bin/e
+    /root/.isp
+    /root/.city
+    /usr/local/bin/fv-tunnel # From udp_mini function
+    # Files from noobzvpns if known
+    # Files from udp-custom.sh if known
+    # Files from openvpn script if known
+    # Files from bbr.sh if known
+    # Files from cf.sh if known
+)
+
+# Remove menu scripts from /usr/local/sbin (be more specific if possible)
+# The installer does `mv menu/* /usr/local/sbin`. This is a bit broad.
+# For now, removing known ones.
+print_ok "Removing specific menu scripts from /usr/local/sbin/..."
+rm -f /usr/local/sbin/{menu,xp,clearlog,limit-ip,limit-ip-ssh,info,addhost,delhost,cekhost,useradd,userdel,trial,renew,cek,member,autokill,ceklim,tendang,speedtest,restart,reboot,status,bw,vnstat,update,set-br,backup,restore,kernel-updt,cftele,bot} # Add all known menu script names
+
+for dir in "${DIRECTORIES_TO_REMOVE[@]}"; do
+    if [ -d "$dir" ]; then
+        print_ok "Removing directory $dir..."
+        rm -rf "$dir" || print_warn "Failed to remove $dir."
+    else
+        print_warn "Directory $dir not found."
+    fi
+done
+
+for file in "${FILES_TO_REMOVE[@]}"; do
+    if [ -f "$file" ]; then
+        print_ok "Removing file $file..."
+        rm -f "$file" || print_warn "Failed to remove $file."
+    else
+        print_warn "File $file not found."
+    fi
+done
+
+# Remove Wondershaper (installed from git)
+if command -v wondershaper &> /dev/null; then
+    print_ok "Removing wondershaper (manual)..."
+    # Common install locations
+    rm -f /usr/sbin/wondershaper /usr/local/sbin/wondershaper /sbin/wondershaper
+    rm -f /etc/conf.d/wondershaper /etc/systemd/system/wondershaper.service
+    # Man pages
+    rm -f /usr/share/man/man8/wondershaper.8*
+fi
+
+
+# --------------------------------------
+# Revert System Configurations
+# --------------------------------------
+print_uninstall "Reverting system configurations..."
+
+# Restore /etc/rc.local (remove added lines)
+if [ -f /etc/rc.local.bak_uninstaller ]; then
+    print_ok "Restoring /etc/rc.local from backup..."
+    mv /etc/rc.local.bak_uninstaller /etc/rc.local
+elif [ -f /etc/rc.local ]; then
+    print_ok "Cleaning /etc/rc.local..."
+    # Create a backup before modifying
+    cp /etc/rc.local /etc/rc.local.bak_$(date +%F-%T)
+    # Remove lines related to IPv6 disable and specific iptables rules
+    sed -i '/echo 1 > \/proc\/sys\/net\/ipv6\/conf\/all\/disable_ipv6/d' /etc/rc.local
+    sed -i '/iptables -I INPUT -p udp --dport 5300 -j ACCEPT/d' /etc/rc.local
+    sed -i '/iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300/d' /etc/rc.local
+    # Ensure 'exit 0' is the last uncommented line if it exists, or add it.
+    if ! grep -q "^exit 0" /etc/rc.local; then
+        if grep -q "exit" /etc/rc.local; then # if other exit codes exist, put exit 0 before them
+             sed -i '/^exit [0-9]\+/i exit 0' /etc/rc.local
+        else
+            echo "exit 0" >> /etc/rc.local
+        fi
+    fi
+    # Remove duplicate "exit 0" lines, keeping only the last one
+    awk '!seen[$0]++ || $0 == "exit 0"' /etc/rc.local > /etc/rc.local.tmp && mv /etc/rc.local.tmp /etc/rc.local
+    chmod +x /etc/rc.local
+else
+    print_warn "/etc/rc.local not found or no backup available."
+fi
+
+
+# Re-enable IPv6 (if it was disabled by the script)
+print_ok "Attempting to re-enable IPv6 (if disabled by script)..."
+if [ -f /proc/sys/net/ipv6/conf/all/disable_ipv6 ] && [ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" = "1" ]; then
+    echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+    print_ok "IPv6 re-enabled in current session."
+fi
+# Also remove from sysctl if added there
+if [ -f /etc/sysctl.conf ]; then
+    sed -i '/net.ipv6.conf.all.disable_ipv6=1/d' /etc/sysctl.conf
+    sed -i '/net.ipv6.conf.default.disable_ipv6=1/d' /etc/sysctl.conf
+    sysctl -p >/dev/null 2>&1
+fi
+
+
+# Remove swapfile from /etc/fstab and turn off swap
+if grep -q "/swapfile" /etc/fstab; then
+    print_ok "Removing swapfile entry from /etc/fstab..."
+    sed -i '\@/swapfile@d' /etc/fstab
+    swapoff /swapfile || print_warn "Failed to swapoff /swapfile (maybe not active)."
+else
+    print_warn "Swapfile entry not found in /etc/fstab."
+fi
+if [ -f /swapfile ]; then
+    print_ok "Removing /swapfile file..."
+    rm -f /swapfile
+fi
+
+
+# Restore /etc/ssh/sshd_config (remove banner and AcceptEnv changes)
+# It's best to restore from a backup if one was made by the installer.
+# Otherwise, try to revert specific changes.
+SSHD_CONFIG="/etc/ssh/sshd_config"
+if [ -f "${SSHD_CONFIG}.bak_hokage_installer" ]; then # Assuming installer made a backup
+    print_ok "Restoring ${SSHD_CONFIG} from .bak_hokage_installer..."
+    mv "${SSHD_CONFIG}.bak_hokage_installer" "${SSHD_CONFIG}"
+elif [ -f "$SSHD_CONFIG" ]; then
+    print_ok "Attempting to revert changes in ${SSHD_CONFIG}..."
+    # Create a backup before modifying
+    cp "$SSHD_CONFIG" "${SSHD_CONFIG}.bak_uninstaller_$(date +%F-%T)"
+    sed -i 's/^Banner \/etc\/kyt.txt/#Banner \/etc\/issue.net/' "$SSHD_CONFIG" # Comment out banner
+    sed -i 's/^#AcceptEnv LANG LC_\*/AcceptEnv LANG LC_\*/' "$SSHD_CONFIG" # Restore AcceptEnv if it was like this
+    # If the installer changed more, those lines would need specific sed commands.
+    systemctl restart ssh || systemctl restart sshd || print_warn "Failed to restart ssh/sshd."
+else
+    print_warn "${SSHD_CONFIG} not found."
+fi
+
+# Restore /etc/default/dropbear (remove banner)
+DROPBEAR_CONFIG="/etc/default/dropbear"
+if [ -f "${DROPBEAR_CONFIG}.bak_hokage_installer" ]; then
+    print_ok "Restoring ${DROPBEAR_CONFIG} from .bak_hokage_installer..."
+    mv "${DROPBEAR_CONFIG}.bak_hokage_installer" "${DROPBEAR_CONFIG}"
+elif [ -f "$DROPBEAR_CONFIG" ]; then
+    print_ok "Attempting to revert changes in ${DROPBEAR_CONFIG}..."
+    cp "$DROPBEAR_CONFIG" "${DROPBEAR_CONFIG}.bak_uninstaller_$(date +%F-%T)"
+    sed -i 's|^DROPBEAR_BANNER="/etc/kyt.txt"|DROPBEAR_BANNER=""|' "$DROPBEAR_CONFIG"
+    /etc/init.d/dropbear restart || print_warn "Failed to restart dropbear."
+else
+    print_warn "${DROPBEAR_CONFIG} not found."
+fi
+
+# Restore /etc/pam.d/common-password
+# This is critical. If the installer replaced it, a backup is essential.
+# The installer wget's a new one.
+PAM_COMMON_PASS="/etc/pam.d/common-password"
+if [ -f "${PAM_COMMON_PASS}.bak_hokage_installer" ]; then
+    print_ok "Restoring ${PAM_COMMON_PASS} from .bak_hokage_installer..."
+    mv "${PAM_COMMON_PASS}.bak_hokage_installer" "${PAM_COMMON_PASS}"
+elif [ -f "${PAM_COMMON_PASS}.dpkg-dist" ]; then # Debian systems often keep a .dpkg-dist
+    print_ok "Restoring ${PAM_COMMON_PASS} from .dpkg-dist..."
+    cp "${PAM_COMMON_PASS}.dpkg-dist" "${PAM_COMMON_PASS}"
+else
+    print_warn "No backup found for ${PAM_COMMON_PASS}. Manual check recommended."
+fi
+
+# Revert BBR changes (remove common sysctl entries)
+# This is a best-guess effort as bbr.sh content is unknown
+SYSCTL_CONF="/etc/sysctl.conf"
+BBR_SETTINGS_REMOVED=false
+if [ -f "$SYSCTL_CONF" ]; then
+    if grep -q "net.core.default_qdisc=fq" "$SYSCTL_CONF" || grep -q "net.ipv4.tcp_congestion_control=bbr" "$SYSCTL_CONF"; then
+        print_ok "Attempting to remove BBR settings from $SYSCTL_CONF..."
+        cp "$SYSCTL_CONF" "${SYSCTL_CONF}.bak_uninstaller_$(date +%F-%T)"
+        sed -i '/net.core.default_qdisc=fq/d' "$SYSCTL_CONF"
+        sed -i '/net.ipv4.tcp_congestion_control=bbr/d' "$SYSCTL_CONF"
+        BBR_SETTINGS_REMOVED=true
+    fi
+fi
+# Check /etc/sysctl.d/
+for f in /etc/sysctl.d/*.conf; do
+    if [ -f "$f" ]; then
+         if grep -q "net.core.default_qdisc=fq" "$f" || grep -q "net.ipv4.tcp_congestion_control=bbr" "$f"; then
+            print_ok "Attempting to remove BBR settings from $f..."
+            cp "$f" "${f}.bak_uninstaller_$(date +%F-%T)"
+            sed -i '/net.core.default_qdisc=fq/d' "$f"
+            sed -i '/net.ipv4.tcp_congestion_control=bbr/d' "$f"
+            BBR_SETTINGS_REMOVED=true
+        fi
+    fi
+done
+if [ "$BBR_SETTINGS_REMOVED" = true ]; then
+    print_ok "Applying sysctl changes..."
+    sysctl -p || print_warn "sysctl -p failed."
+fi
+
+
+# Remove from /etc/shells
+SHELLS_FILE="/etc/shells"
+if [ -f "$SHELLS_FILE" ]; then
+    print_ok "Removing /bin/false and /usr/sbin/nologin from $SHELLS_FILE..."
+    cp "$SHELLS_FILE" "${SHELLS_FILE}.bak_uninstaller_$(date +%F-%T)"
+    sed -i '\@^/bin/false@d' "$SHELLS_FILE"
+    sed -i '\@^/usr/sbin/nologin@d' "$SHELLS_FILE"
+else
+    print_warn "$SHELLS_FILE not found."
+fi
+
+# Restore /root/.profile
+# The installer replaces it. A default .profile might be in /etc/skel/.profile
+if [ -f /root/.profile.bak_hokage_installer ]; then
+    print_ok "Restoring /root/.profile from backup..."
+    mv /root/.profile.bak_hokage_installer /root/.profile
+elif [ -f /etc/skel/.profile ]; then
+    print_ok "Restoring /root/.profile from /etc/skel/.profile..."
+    cp /etc/skel/.profile /root/.profile
+else
+    print_warn "No backup for /root/.profile and /etc/skel/.profile not found. Manual check recommended."
+fi
+
+
+# --------------------------------------
+# Remove Cron Jobs
+# --------------------------------------
+print_uninstall "Removing cron jobs..."
+CRON_FILES=(
+    /etc/cron.d/xp_all
+    /etc/cron.d/logclean
+    /etc/cron.d/daily_reboot
+    /etc/cron.d/limit_ip
+    /etc/cron.d/lim-ip-ssh
+    /etc/cron.d/limit_ip2
+    /etc/cron.d/log.nginx
+    /etc/cron.d/log.xray
+    # Cron job for DDoS Deflate if known (e.g., /etc/cron.d/ddos)
+)
+for cron_file in "${CRON_FILES[@]}"; do
+    if [ -f "$cron_file" ]; then
+        print_ok "Removing cron file $cron_file..."
+        rm -f "$cron_file" || print_warn "Failed to remove $cron_file."
+    else
+        print_warn "Cron file $cron_file not found."
+    fi
+done
+service cron restart || systemctl restart cron || print_warn "Failed to restart cron service."
+
+# --------------------------------------
+# Flush IPTables and Remove Rules
+# --------------------------------------
+print_uninstall "Flushing IPTables and removing persistent rules..."
+iptables -F
+iptables -X
+iptables -Z
+iptables -t nat -F
+iptables -t nat -X
+iptables -t nat -Z
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -t mangle -Z
+iptables -P INPUT ACCEPT
+iptables -P FORWARD ACCEPT
+iptables -P OUTPUT ACCEPT
+
+rm -f /etc/iptables.up.rules
+if systemctl list-units --type=service --all | grep -Fq "netfilter-persistent.service"; then
+    netfilter-persistent flush || print_warn "netfilter-persistent flush failed."
+    netfilter-persistent save || print_warn "netfilter-persistent save failed (after flush)."
+fi
+
+# --------------------------------------
+# Final Cleanup
+# --------------------------------------
+print_uninstall "Performing final cleanup..."
+# Remove installer log if it exists
+rm -f /root/log-install.txt
+
+# Remove any remaining temporary files from installer (if paths are known)
+rm -f /root/menu.zip /root/*.sh # Be careful with *.sh
+
+# Restore original hostname (this is tricky, as original might not be known)
+# For now, we'll leave it. User can change it manually.
+# echo "Original hostname restoration might be needed manually."
+
+# Reload daemon
+systemctl daemon-reload
+
+echo ""
+print_ok "Uninstallation process finished."
+print_warn "A system reboot is recommended to ensure all changes are applied and services are fully stopped."
+print_warn "Please manually check for any remaining files or configurations if you encounter issues."
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo -e " SCRIPT BY HOKAGE LEGEND - UNINSTALLER "
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo ""
+read -p "Reboot now? (y/N): " REBOOT_CHOICE
+if [[ "$REBOOT_CHOICE" =~ ^[Yy]$ ]]; then
+    echo "Rebooting..."
+    reboot
+fi
+
+exit 0
+```
+
+**How to Use:**
+
+1.  Save the script above to a file, for example, `uninstaller.sh`.
+2.  Make it executable: `chmod +x uninstaller.sh`.
+3.  Run it as root: `sudo ./uninstaller.sh`.
+
+**Important Notes for the Uninstaller Script:**
+
+* **Backups:** The uninstaller attempts to make backups of some configuration files before modifying them (e.g., `/etc/rc.local.bak_uninstaller_YYYY-MM-DD-HH-MM-SS`). However, it relies on the installer having made backups with specific names (like `.bak_hokage_installer`) for critical files like `sshd_config` or `common-password`. If those don't exist, restoration is more difficult.
+* **External Scripts (`bbr.sh`, `noobzvpns/install.sh`, etc.):** The uninstaller makes educated guesses about how to revert changes from these scripts (e.g., common BBR sysctl lines). A perfect reversal requires knowing exactly what those scripts did.
+    * **`noobzvpns`**: I've assumed it might install to `/opt/noobzvpns` and create a service `noobzvpns.service`. You might need to adjust this.
+    * **`wondershaper`**: Removed by deleting common file locations.
+    * **SlowDNS (`nameserver` script) & `fv-tunnel` & `udp-custom.sh`**: The uninstaller tries to kill potential processes and remove downloaded files. Any persistent configuration changes made by these would need manual reversal if not covered.
+* **Xray Uninstallation:** The script includes a line to use Xray's own installation script for removal (`... @ remove --purge`). This is generally the cleanest way to remove Xray if it was installed using that script.
+* **Menu Scripts:** The installer copies all files from a `menu` directory to `/usr/local/sbin`. The uninstaller attempts to remove known menu script names. If there are others, they would need to be added to the list or removed manually.
+* **`nginx.conf`**: The installer overwrites `/etc/nginx/nginx.conf`. The uninstaller removes it. If you had a custom `nginx.conf` before, you'd need to restore it from your own backups or reinstall Nginx to get a default one.
+* **`/etc/pam.d/common-password`**: This file is critical for password authentication. The installer overwrites it. The uninstaller tries to restore from a backup or a `.dpkg-dist` version. **Handle with extreme care.**
+* **Idempotency:** The script tries to check if files/packages exist before attempting removal to avoid errors on subsequent runs, but perfect idempotency is hard to achieve for all operations.
+* **Review Before Running:** It's highly recommended to review the uninstaller script carefully and understand what it does before executing it on a production system.
+
+This uninstaller script should provide a good starting point for cleaning up the system. You may need to adjust it based on the exact behavior of all sub-scripts used by your original installer.Okay, I've created the uninstaller script for you.
+
+It's designed to reverse the actions of your installation script, including removing packages, deleting created files and directories, stopping and disabling services, and attempting to revert system configuration changes.
+
+I've included comments within the script to explain what each section does. Please remember to **back up any critical data** before running this uninstaller, as it will make significant changes to your system. Some actions, especially those performed by external scripts fetched by your installer, might be complex to revert perfectly.
+
+You can find the uninstaller script in the document below.
+
+
+```bash
+#!/bin/bash
+
+# Color Codes
+Green="\e[92;1m"
+RED="\033[31m"
+YELLOW="\033[33m"
+BLUE="\033[36m"
+FONT="\033[0m"
+GREENBG="\033[42;37m"
+REDBG="\033[41;37m"
+OK="${Green}--->${FONT}"
+ERROR="${RED}[ERROR]${FONT}"
+WARN="${YELLOW}[WARNING]${FONT}"
+NC='\e[0m' # No Color
+GRAY="\e[1;30m"
+
+# Function to print messages
+function print_ok() {
+    echo -e "${OK} ${BLUE}$1${FONT}"
+}
+
+function print_error() {
+    echo -e "${ERROR} ${REDBG}$1${FONT}"
+}
+
+function print_warn() {
+    echo -e "${WARN} $1${FONT}"
+}
+
+function print_uninstall() {
+    echo -e "${YELLOW}=======================================${FONT}"
+    echo -e "${YELLOW} # $1 ${FONT}"
+    echo -e "${YELLOW}=======================================${FONT}"
+    sleep 1
+}
+
+# Check if running as root
+if [ "${EUID}" -ne 0 ]; then
+    print_error "You need to run this script as root."
+    exit 1
+fi
+
+clear
+echo -e "${RED}####################################################################${NC}"
+echo -e "${RED}# ${YELLOW}           WELCOME TO HOKAGE LEGEND VPN UNINSTALLER             ${RED}#${NC}"
+echo -e "${RED}# ${YELLOW} This script will attempt to remove components installed by the   ${RED}#${NC}"
+echo -e "${RED}# ${YELLOW}             Hokage Legend VPN installation script.             ${RED}#${NC}"
+echo -e "${RED}#                                                                  ${RED}#${NC}"
+echo -e "${RED}# ${WARN} IMPORTANT: BACK UP YOUR DATA BEFORE PROCEEDING!              ${RED}#${NC}"
+echo -e "${RED}# ${WARN} This script will remove packages, files, and configurations. ${RED}#${NC}"
+echo -e "${RED}####################################################################${NC}"
+echo ""
+read -p "$(echo -e "Press ${GRAY}[ ${NC}${Green}Enter${NC} ${GRAY}]${NC} to continue, or ${RED}Ctrl+C${NC} to abort.")"
+
+# --------------------------------------
+# Stop Services
+# --------------------------------------
+print_uninstall "Stopping services..."
+SERVICES_SYSTEMD=(
+    nginx xray runn haproxy dropbear openvpn cron ws fail2ban vnstat
+    udp-mini-1 udp-mini-2 udp-mini-3 rc-local netfilter-persistent noobzvpns chronyd chrony
+    # Add other custom services if known
+)
+SERVICES_INITD=(
+    ssh # sshd is usually managed by systemd now, but good to check
+    # Add other init.d services if known
+)
+
+for service in "${SERVICES_SYSTEMD[@]}"; do
+    if systemctl list-units --type=service --all | grep -Fq "$service.service"; then
+        print_ok "Stopping and disabling $service..."
+        systemctl stop "$service" || print_warn "Failed to stop $service or already stopped."
+        systemctl disable "$service" || print_warn "Failed to disable $service or already disabled."
+    else
+        print_warn "$service.service not found."
+    fi
+done
+
+for service in "${SERVICES_INITD[@]}"; do
+    if [ -f "/etc/init.d/$service" ]; then
+        print_ok "Stopping $service (init.d)..."
+        service "$service" stop || /etc/init.d/"$service" stop || print_warn "Failed to stop $service (init.d) or already stopped."
+        # Disabling init.d services (update-rc.d or chkconfig)
+        if command -v update-rc.d &> /dev/null; then
+            update-rc.d -f "$service" remove || print_warn "Failed to disable $service (update-rc.d)."
+        elif command -v chkconfig &> /dev/null; then
+            chkconfig "$service" off || print_warn "Failed to disable $service (chkconfig)."
+        fi
+    fi
+done
+
+# Stop Xray via its own install script
+if [ -f /usr/local/bin/xray ]; then
+    print_ok "Attempting to stop and remove Xray via its official install script..."
+    # Ensure the script is executable, then run remove command
+    # The official script handles stopping the service before removal.
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove --purge || print_warn "Xray removal script failed or Xray not installed via this method."
+fi
+
+# Stop SlowDNS if a known process name exists
+# This is a guess, as the installer uses a generic 'nameserver' script
+# The installer script for SlowDNS typically runs a python script.
+if pgrep -f "server.py" > /dev/null || pgrep -f "dns.py" > /dev/null || pgrep -f "slowdns" > /dev/null ; then
+    print_ok "Attempting to stop SlowDNS processes..."
+    pkill -f "server.py"
+    pkill -f "dns.py"
+    pkill -f "slowdns"
+fi
+
+
+# --------------------------------------
+# Remove Packages
+# --------------------------------------
+print_uninstall "Removing installed packages..."
+PACKAGES_APT=(
+    haproxy nginx ruby wondershaper zip pwgen openssl netcat socat cron bash-completion figlet ntpdate sudo
+    debconf-utils speedtest-cli vnstat libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev
+    libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev bc rsyslog
+    dos2unix zlib1g-dev libssl-dev libsqlite3-dev sed dirmngr libxml-parser-perl build-essential gcc g++ python
+    htop lsof tar wget curl python3-pip libc6 util-linux msmtp-mta ca-certificates bsd-mailx iptables
+    iptables-persistent netfilter-persistent net-tools gnupg gnupg2 lsb-release shc make cmake git screen
+    xz-utils apt-transport-https gnupg1 dnsutils chrony jq openvpn easy-rsa dropbear rclone fail2ban gotop
+    # Add packages installed by sub-scripts if known
+)
+
+for pkg in "${PACKAGES_APT[@]}"; do
+    if dpkg -s "$pkg" &> /dev/null; then
+        print_ok "Removing $pkg..."
+        apt-get remove --purge -y "$pkg" || print_warn "Failed to remove $pkg."
+    else
+        print_warn "$pkg not installed."
+    fi
+done
+
+if command -v gem &> /dev/null; then
+    if gem list | grep -q "lolcat"; then
+        print_ok "Uninstalling lolcat gem..."
+        gem uninstall lolcat -x || print_warn "Failed to uninstall lolcat gem."
+    else
+        print_warn "lolcat gem not installed."
+    fi
+else
+    print_warn "Ruby gem command not found, skipping lolcat uninstall."
+fi
+
+apt-get autoremove -y
+apt-get clean -y
+
+# --------------------------------------
+# Remove PPA and Repositories
+# --------------------------------------
+print_uninstall "Removing PPA/Repositories..."
+# For Ubuntu (haproxy PPA)
+if [ -f /etc/os-release ] && grep -q "ID=ubuntu" /etc/os-release; then
+    # Check if add-apt-repository is available
+    if command -v add-apt-repository &> /dev/null; then
+        if grep -q "vbernat/haproxy-2.0" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+            print_ok "Removing ppa:vbernat/haproxy-2.0..."
+            add-apt-repository --remove ppa:vbernat/haproxy-2.0 -y || print_warn "Failed to remove haproxy PPA."
+        fi
+    else
+        print_warn "add-apt-repository command not found, cannot remove PPA automatically."
+        print_warn "Please remove ppa:vbernat/haproxy-2.0 manually if it exists."
+    fi
+fi
+# For Debian (haproxy.list)
+if [ -f /etc/apt/sources.list.d/haproxy.list ]; then
+    print_ok "Removing /etc/apt/sources.list.d/haproxy.list..."
+    rm -f /etc/apt/sources.list.d/haproxy.list || print_warn "Failed to remove haproxy.list."
+fi
+apt-get update -y
+
+# --------------------------------------
+# Remove Files and Directories
+# --------------------------------------
+print_uninstall "Removing files and directories..."
+DIRECTORIES_TO_REMOVE=(
+    /etc/xray
+    /var/log/xray
+    /var/lib/kyt # Contains ipvps.conf
+    /etc/vmess
+    /etc/vless
+    /etc/trojan
+    /etc/shadowsocks
+    # /etc/ssh # System directory, do not remove. Configs will be handled separately.
+    /etc/bot
+    /usr/bin/xray # This might be a directory or symlink created by custom install
+    /usr/local/etc/xray # Xray default config location by official installer
+    # /var/www/html # Content removed below, directory itself usually kept
+    /etc/kyt/limit
+    /etc/limit
+    /etc/user-create
+    /run/xray
+    /root/.acme.sh
+    /usr/local/kyt # udp-mini is here
+    /usr/local/ddos # For DDoS Deflate
+    /opt/noobzvpns # Assuming noobzvpns installs here
+    /root/noobzvpns # Source directory if not removed by installer
+    /root/vnstat-2.6 # Source directory if not removed
+    /root/.info # Contains .isp and .city
+    # Directories created by menu scripts if known
+)
+# Remove content of /var/www/html if it was solely for this VPN script
+# Be cautious if other web applications use this directory.
+# For this uninstaller, we assume it might be shared, so we only remove specific files if known.
+# If /var/www/html was created by the script and is exclusive, add /var/www/html to DIRECTORIES_TO_REMOVE.
+# The installer script does `mkdir -p /var/www/html` but doesn't seem to put specific files there other than what nginx serves from xray.conf.
+
+FILES_TO_REMOVE=(
+    /root/domain
+    # /etc/xray/ipvps # in /etc/xray dir
+    # /etc/xray/domain # in /etc/xray dir
+    # /var/log/xray/access.log # in /var/log/xray dir
+    # /var/log/xray/error.log # in /var/log/xray dir
+    /var/lib/kyt/ipvps.conf # Handled by /var/lib/kyt removal
+    # SSL certs are in /etc/xray
+    # /root/.acme.sh/acme.sh # in /root/.acme.sh dir
+    # DB files are in their respective /etc/{service} dirs
+    # /etc/user-create/user.log # in /etc/user-create dir
+    /usr/local/bin/xray # Xray binary by official installer
+    /etc/systemd/system/xray.service
+    /etc/systemd/system/runn.service
+    # /etc/xray/city # in /etc/xray dir
+    # /etc/xray/isp # in /etc/xray dir
+    /etc/haproxy/haproxy.cfg
+    /etc/nginx/conf.d/xray.conf
+    # /etc/nginx/nginx.conf # This is a main config file. Installer overwrites it.
+                            # User might need to restore from backup or reinstall nginx for default.
+    /etc/haproxy/hap.pem
+    # /etc/pam.d/common-password # Critical file, handled separately for restoration
+    /etc/systemd/system/rc-local.service
+    # /etc/rc.local # Handled separately for restoration
+    /usr/local/kyt/udp-mini # Handled by /usr/local/kyt removal
+    /etc/systemd/system/udp-mini-1.service
+    /etc/systemd/system/udp-mini-2.service
+    /etc/systemd/system/udp-mini-3.service
+    /tmp/nameserver # Temp script for SlowDNS
+    /root/install.log # Log for SlowDNS install
+    # /etc/ssh/sshd_config # Handled separately
+    # /etc/default/dropbear # Handled separately
+    /root/udp-custom.sh # Installer removes it, but check just in case
+    /root/vnstat-2.6.tar.gz # Downloaded archive
+    /root/openvpn # Installer script, should be removed by installer
+    /root/.config/rclone/rclone.conf
+    /home/limit
+    /etc/msmtprc
+    /etc/ipserver
+    /swapfile # Handled separately
+    /root/bbr.sh # Installer script, should be removed by installer
+    /etc/kyt.txt # Banner file
+    /usr/bin/ws # ePro WebSocket binary
+    /usr/bin/tun.conf # ePro WebSocket config
+    /etc/systemd/system/ws.service # ePro WebSocket service
+    /usr/local/share/xray/geosite.dat # Xray data file
+    /usr/local/share/xray/geoip.dat # Xray data file
+    /usr/sbin/ftvpn
+    /root/noobzvpns.zip # Downloaded archive
+    # Menu scripts are handled below
+    /root/.profile # Handled separately
+    # Cron files are handled separately
+    # /root/.info/.isp # in /root/.info dir
+    # /root/.info/.city # in /root/.info dir
+    /home/daily_reboot
+    /root/log-install.txt # Installer log
+    /usr/bin/user # Created by installer
+    /usr/bin/e # Created by installer
+    /root/.isp # Created by installer
+    /root/.city # Created by installer
+    /usr/local/bin/fv-tunnel # From udp_mini function, assuming it's a file not a dir
+    # Files from noobzvpns if known
+    # Files from udp-custom.sh if known
+    # Files from openvpn script if known
+    # Files from bbr.sh if known
+    # Files from cf.sh if known
+    /root/cf.sh # Installer script for Cloudflare
+)
+
+# Remove menu scripts from /usr/local/sbin
+# The installer does `mv menu/* /usr/local/sbin`.
+# We need to list them or remove all non-system files carefully.
+# For safety, explicitly list known scripts.
+print_ok "Removing specific menu scripts from /usr/local/sbin/..."
+KNOWN_MENU_SCRIPTS=(
+    menu xp clearlog limit-ip limit-ip-ssh info addhost delhost cekhost useradd userdel trial renew cek member
+    autokill ceklim tendang speedtest restart reboot status bw vnstat-menu update set-br backup restore
+    kernel-updt cftele bot # Add ALL known menu script names here
+    # The installer script has `wget ${REPO}menu/menu.zip; unzip menu.zip; chmod +x menu/*; mv menu/* /usr/local/sbin`
+    # The exact names depend on the content of menu.zip
+)
+for script_name in "${KNOWN_MENU_SCRIPTS[@]}"; do
+    if [ -f "/usr/local/sbin/$script_name" ]; then
+        rm -f "/usr/local/sbin/$script_name" || print_warn "Failed to remove /usr/local/sbin/$script_name"
+    fi
+done
+# Remove the menu source dir if it was left
+rm -rf /root/menu
+
+for dir in "${DIRECTORIES_TO_REMOVE[@]}"; do
+    if [ -d "$dir" ]; then
+        print_ok "Removing directory $dir..."
+        rm -rf "$dir" || print_warn "Failed to remove $dir."
+    else
+        print_warn "Directory $dir not found."
+    fi
+done
+
+for file in "${FILES_TO_REMOVE[@]}"; do
+    if [ -f "$file" ]; then
+        print_ok "Removing file $file..."
+        rm -f "$file" || print_warn "Failed to remove $file."
+    else
+        print_warn "File $file not found."
+    fi
+done
+
+# Remove Wondershaper (installed from git make install)
+# `make uninstall` would be ideal but source is removed.
+# Common install locations for `make install` without prefix:
+if command -v wondershaper &> /dev/null; then # Check if command exists
+    WONDER SHAPER_PATH=$(command -v wondershaper)
+    print_ok "Removing wondershaper binary at $WONDER SHAPER_PATH..."
+    rm -f "$WONDER SHAPER_PATH"
+    # Also check /usr/local/sbin if not the above
+    rm -f /usr/local/sbin/wondershaper
+    # Man pages if any
+    rm -f /usr/local/share/man/man8/wondershaper.8
+fi
+rm -rf /root/wondershaper # Source directory if not removed
+
+# --------------------------------------
+# Revert System Configurations
+# --------------------------------------
+print_uninstall "Reverting system configurations..."
+
+# Restore /etc/rc.local
+RC_LOCAL_FILE="/etc/rc.local"
+RC_LOCAL_BACKUP="${RC_LOCAL_FILE}.bak_hokage_installer" # Assuming installer created this
+if [ -f "$RC_LOCAL_BACKUP" ]; then
+    print_ok "Restoring $RC_LOCAL_FILE from $RC_LOCAL_BACKUP..."
+    mv "$RC_LOCAL_BACKUP" "$RC_LOCAL_FILE"
+    chmod +x "$RC_LOCAL_FILE"
+elif [ -f "$RC_LOCAL_FILE" ]; then
+    print_ok "Cleaning $RC_LOCAL_FILE..."
+    cp "$RC_LOCAL_FILE" "${RC_LOCAL_FILE}.bak_uninstaller_$(date +%F-%T)"
+    # Remove lines added by the installer
+    sed -i '/echo 1 > \/proc\/sys\/net\/ipv6\/conf\/all\/disable_ipv6/d' "$RC_LOCAL_FILE"
+    sed -i '/iptables -I INPUT -p udp --dport 5300 -j ACCEPT/d' "$RC_LOCAL_FILE"
+    sed -i '/iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300/d' "$RC_LOCAL_FILE"
+    sed -i '/systemctl restart netfilter-persistent/d' "$RC_LOCAL_FILE" # Added by installer's profile function
+    # Ensure 'exit 0' is the last non-commented line
+    if ! grep -q "^\s*exit 0\s*$" "$RC_LOCAL_FILE"; then
+        # Remove any other exit commands
+        sed -i '/^\s*exit [0-9]\+/d' "$RC_LOCAL_FILE"
+        echo "exit 0" >> "$RC_LOCAL_FILE"
+    fi
+    chmod +x "$RC_LOCAL_FILE"
+else
+    print_warn "$RC_LOCAL_FILE not found or no backup available."
+fi
+
+# Re-enable IPv6 (if it was disabled by the script)
+print_ok "Attempting to re-enable IPv6 (if disabled by script)..."
+if [ -f /proc/sys/net/ipv6/conf/all/disable_ipv6 ] && [ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6)" = "1" ]; then
+    echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+    print_ok "IPv6 re-enabled in current session."
+fi
+# Also remove from sysctl if added there by bbr.sh or other means
+SYSCTL_CONF_FILES=("/etc/sysctl.conf" /etc/sysctl.d/*.conf)
+for conf_file in "${SYSCTL_CONF_FILES[@]}"; do
+    if [ -f "$conf_file" ]; then
+        if grep -q "net.ipv6.conf.all.disable_ipv6=1" "$conf_file"; then
+            sed -i '/net.ipv6.conf.all.disable_ipv6=1/d' "$conf_file"
+            sed -i '/net.ipv6.conf.default.disable_ipv6=1/d' "$conf_file" # Often set together
+            print_ok "Removed IPv6 disable from $conf_file"
+            NEEDS_SYSCTL_RELOAD=true
+        fi
+    fi
+done
+if [ "$NEEDS_SYSCTL_RELOAD" = true ]; then
+    sysctl -p >/dev/null 2>&1
+fi
+
+# Remove swapfile from /etc/fstab and turn off swap
+FSTAB_FILE="/etc/fstab"
+if grep -q "/swapfile" "$FSTAB_FILE"; then
+    print_ok "Removing swapfile entry from $FSTAB_FILE..."
+    cp "$FSTAB_FILE" "${FSTAB_FILE}.bak_uninstaller_$(date +%F-%T)"
+    sed -i '\@/swapfile@d' "$FSTAB_FILE"
+fi
+if mount | grep -q ' /swapfile '; then # Check if swap is active
+    swapoff /swapfile || print_warn "Failed to swapoff /swapfile (maybe not active or permissions)."
+fi
+if [ -f /swapfile ]; then # Actual file removal
+    print_ok "Removing /swapfile file..."
+    rm -f /swapfile
+fi
+
+# Restore /etc/ssh/sshd_config
+SSHD_CONFIG="/etc/ssh/sshd_config"
+SSHD_CONFIG_BACKUP="${SSHD_CONFIG}.bak_hokage_installer"
+if [ -f "$SSHD_CONFIG_BACKUP" ]; then
+    print_ok "Restoring $SSHD_CONFIG from $SSHD_CONFIG_BACKUP..."
+    mv "$SSHD_CONFIG_BACKUP" "$SSHD_CONFIG"
+elif [ -f "$SSHD_CONFIG" ]; then
+    print_ok "Attempting to revert changes in $SSHD_CONFIG..."
+    cp "$SSHD_CONFIG" "${SSHD_CONFIG}.bak_uninstaller_$(date +%F-%T)"
+    sed -i 's|^Banner /etc/kyt.txt|#Banner /etc/issue.net|' "$SSHD_CONFIG" # Comment out specific banner
+    sed -i 's|^#AcceptEnv LANG LC_\*|AcceptEnv LANG LC_\*|' "$SSHD_CONFIG" # Restore if this was the original
+    # Check for default sshd_config from package if available
+    if [ -f "${SSHD_CONFIG}.dpkg-dist" ]; then
+        # cp "${SSHD_CONFIG}.dpkg-dist" "$SSHD_CONFIG" # This would overwrite, be careful
+        print_warn "A .dpkg-dist version of sshd_config exists. You might want to compare or restore it manually."
+    fi
+else
+    print_warn "$SSHD_CONFIG not found."
+fi
+systemctl restart ssh || systemctl restart sshd || print_warn "Failed to restart ssh/sshd."
+
+
+# Restore /etc/default/dropbear
+DROPBEAR_CONFIG="/etc/default/dropbear"
+DROPBEAR_CONFIG_BACKUP="${DROPBEAR_CONFIG}.bak_hokage_installer"
+if [ -f "$DROPBEAR_CONFIG_BACKUP" ]; then
+    print_ok "Restoring $DROPBEAR_CONFIG from $DROPBEAR_CONFIG_BACKUP..."
+    mv "$DROPBEAR_CONFIG_BACKUP" "$DROPBEAR_CONFIG"
+elif [ -f "$DROPBEAR_CONFIG" ]; then
+    print_ok "Attempting to revert changes in $DROPBEAR_CONFIG..."
+    cp "$DROPBEAR_CONFIG" "${DROPBEAR_CONFIG}.bak_uninstaller_$(date +%F-%T)"
+    sed -i 's|^DROPBEAR_BANNER="/etc/kyt.txt"|DROPBEAR_BANNER=""|' "$DROPBEAR_CONFIG" # Set to empty or default
+else
+    print_warn "$DROPBEAR_CONFIG not found."
+fi
+if systemctl list-units --type=service --all | grep -Fq "dropbear.service"; then
+    systemctl restart dropbear || print_warn "Failed to restart dropbear."
+elif [ -f /etc/init.d/dropbear ]; then
+     /etc/init.d/dropbear restart || print_warn "Failed to restart dropbear (init.d)."
+fi
+
+# Restore /etc/pam.d/common-password
+PAM_COMMON_PASS="/etc/pam.d/common-password"
+PAM_COMMON_PASS_BACKUP="${PAM_COMMON_PASS}.bak_hokage_installer"
+if [ -f "$PAM_COMMON_PASS_BACKUP" ]; then
+    print_ok "Restoring $PAM_COMMON_PASS from $PAM_COMMON_PASS_BACKUP..."
+    mv "$PAM_COMMON_PASS_BACKUP" "$PAM_COMMON_PASS"
+elif [ -f "${PAM_COMMON_PASS}.dpkg-dist" ]; then
+    print_ok "Restoring $PAM_COMMON_PASS from .dpkg-dist..."
+    cp "${PAM_COMMON_PASS}.dpkg-dist" "$PAM_COMMON_PASS"
+else
+    print_warn "No backup found for $PAM_COMMON_PASS. Manual check strongly recommended. System authentication might be affected."
+fi
+
+# Restore /etc/nginx/nginx.conf
+NGINX_CONF="/etc/nginx/nginx.conf"
+NGINX_CONF_BACKUP="${NGINX_CONF}.bak_hokage_installer"
+if [ -f "$NGINX_CONF_BACKUP" ]; then
+    print_ok "Restoring $NGINX_CONF from $NGINX_CONF_BACKUP..."
+    mv "$NGINX_CONF_BACKUP" "$NGINX_CONF"
+elif [ -f "${NGINX_CONF}.dpkg-dist" ]; then
+     print_ok "Restoring $NGINX_CONF from .dpkg-dist..."
+     cp "${NGINX_CONF}.dpkg-dist" "$NGINX_CONF"
+else
+    print_warn "Installer overwrote $NGINX_CONF. No specific backup found. Consider reinstalling nginx or restoring from system backup if needed."
+    # As a fallback, remove the one installed by the script if it's very custom and causing issues
+    # rm -f $NGINX_CONF
+fi
+if systemctl list-units --type=service --all | grep -Fq "nginx.service"; then
+    systemctl restart nginx || print_warn "Failed to restart nginx."
+fi
+
+
+# Revert BBR changes (remove common sysctl entries from bbr.sh)
+BBR_SETTINGS_REMOVED=false
+NEEDS_SYSCTL_RELOAD=false
+for conf_file in "${SYSCTL_CONF_FILES[@]}"; do # Reuse declared array
+    if [ -f "$conf_file" ]; then
+        # Check for common BBR settings
+        if grep -q -E "net.core.default_qdisc=fq|net.ipv4.tcp_congestion_control=bbr" "$conf_file"; then
+            print_ok "Attempting to remove BBR settings from $conf_file..."
+            cp "$conf_file" "${conf_file}.bak_uninstaller_$(date +%F-%T)"
+            sed -i '/net.core.default_qdisc=fq/d' "$conf_file"
+            sed -i '/net.ipv4.tcp_congestion_control=bbr/d' "$conf_file"
+            BBR_SETTINGS_REMOVED=true
+            NEEDS_SYSCTL_RELOAD=true
+        fi
+    fi
+done
+if [ "$BBR_SETTINGS_REMOVED" = true ]; then
+    print_ok "BBR sysctl settings removed."
+fi
+if [ "$NEEDS_SYSCTL_RELOAD" = true ]; then
+    print_ok "Applying sysctl changes..."
+    sysctl -p || print_warn "sysctl -p failed."
+fi
+
+# Remove from /etc/shells
+SHELLS_FILE="/etc/shells"
+if [ -f "$SHELLS_FILE" ]; then
+    if grep -q -E "^/bin/false|^/usr/sbin/nologin" "$SHELLS_FILE"; then
+        print_ok "Removing /bin/false and /usr/sbin/nologin from $SHELLS_FILE..."
+        cp "$SHELLS_FILE" "${SHELLS_FILE}.bak_uninstaller_$(date +%F-%T)"
+        sed -i '\@^/bin/false@d' "$SHELLS_FILE"
+        sed -i '\@^/usr/sbin/nologin@d' "$SHELLS_FILE"
+    fi
+else
+    print_warn "$SHELLS_FILE not found."
+fi
+
+# Restore /root/.profile
+PROFILE_FILE="/root/.profile"
+PROFILE_BACKUP="${PROFILE_FILE}.bak_hokage_installer"
+if [ -f "$PROFILE_BACKUP" ]; then
+    print_ok "Restoring $PROFILE_FILE from $PROFILE_BACKUP..."
+    mv "$PROFILE_BACKUP" "$PROFILE_FILE"
+elif [ -f /etc/skel/.profile ]; then # Default profile
+    print_ok "Restoring $PROFILE_FILE from /etc/skel/.profile..."
+    cp /etc/skel/.profile "$PROFILE_FILE"
+else
+    print_warn "No backup for $PROFILE_FILE and /etc/skel/.profile not found. Manual check recommended."
+    # As a last resort, create a minimal one if it's totally gone
+    if [ ! -f "$PROFILE_FILE" ]; then
+        echo '# ~/.profile: executed by Bourne-compatible login shells.' > "$PROFILE_FILE"
+        echo 'if [ "$BASH" ]; then if [ -f ~/.bashrc ]; then . ~/.bashrc; fi; fi' >> "$PROFILE_FILE"
+        echo 'mesg n || true' >> "$PROFILE_FILE"
+    fi
+fi
+
+# --------------------------------------
+# Remove Cron Jobs
+# --------------------------------------
+print_uninstall "Removing cron jobs..."
+CRON_FILES_TO_REMOVE=(
+    /etc/cron.d/xp_all
+    /etc/cron.d/logclean
+    /etc/cron.d/daily_reboot
+    /etc/cron.d/limit_ip
+    /etc/cron.d/lim-ip-ssh
+    /etc/cron.d/limit_ip2
+    /etc/cron.d/log.nginx
+    /etc/cron.d/log.xray
+    # Cron job for DDoS Deflate if known (e.g., /etc/cron.d/ddos or ddos.cron in /etc/cron.daily)
+    /etc/cron.daily/ddos.cron # Common for ddos deflate
+)
+for cron_file in "${CRON_FILES_TO_REMOVE[@]}"; do
+    if [ -f "$cron_file" ]; then
+        print_ok "Removing cron file $cron_file..."
+        rm -f "$cron_file" || print_warn "Failed to remove $cron_file."
+    else
+        print_warn "Cron file $cron_file not found."
+    fi
+done
+service cron restart || systemctl restart cron || print_warn "Failed to restart cron service."
+
+# --------------------------------------
+# Flush IPTables and Remove Rules
+# --------------------------------------
+print_uninstall "Flushing IPTables and removing persistent rules..."
+if command -v iptables &> /dev/null; then
+    iptables -F INPUT
+    iptables -F FORWARD
+    iptables -F OUTPUT
+    iptables -X
+    iptables -Z
+    iptables -t nat -F
+    iptables -t nat -X
+    iptables -t nat -Z
+    iptables -t mangle -F
+    iptables -t mangle -X
+    iptables -t mangle -Z
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -P OUTPUT ACCEPT
+    print_ok "IPTables flushed."
+else
+    print_warn "iptables command not found."
+fi
+
+rm -f /etc/iptables.up.rules # Saved by installer
+if systemctl list-units --type=service --all | grep -Fq "netfilter-persistent.service"; then
+    print_ok "Flushing netfilter-persistent rules..."
+    netfilter-persistent flush || print_warn "netfilter-persistent flush failed."
+    # Do not save after flush, as we want to clear them.
+else
+    # For older systems that might use iptables-save/restore directly
+    if [ -f /etc/init.d/iptables-persistent ]; then
+        /etc/init.d/iptables-persistent flush || print_warn "iptables-persistent flush failed."
+    fi
+fi
+
+
+# --------------------------------------
+# Final Cleanup
+# --------------------------------------
+print_uninstall "Performing final cleanup..."
+# Remove installer log if it exists
+rm -f /root/log-install.txt
+
+# Remove any remaining temporary files from installer (if paths are known)
+# rm -f /root/menu.zip # Already handled if present
+# rm -f /root/*.sh # Be very careful with wildcard deletions.
+# Specific installer scripts that might be left:
+rm -f /root/key.pem /root/cert.pem # From installer's end section
+
+# Restore original hostname (this is tricky, as original might not be known)
+# Installer sets it to $username (which is fetched based on IP)
+# It's safer to let the user manage hostname post-uninstallation.
+print_warn "Original hostname restoration might be needed manually if it was changed."
+print_warn "The installer set hostname based on a fetched username."
+
+# Unset HISTFILE to prevent command logging if set in /etc/profile by installer
+if grep -q "unset HISTFILE" /etc/profile; then
+    sed -i '/unset HISTFILE/d' /etc/profile
+    print_ok "Removed 'unset HISTFILE' from /etc/profile."
+fi
+
+
+# Reload daemon
+systemctl daemon-reload
+
+echo ""
+print_ok "Uninstallation process finished."
+print_warn "A system reboot is STRONGLY recommended to ensure all changes are applied and services are fully stopped/cleaned."
+print_warn "Please manually check for any remaining files or configurations if you encounter issues."
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo -e " SCRIPT BY HOKAGE LEGEND - UNINSTALLER "
+echo -e "${YELLOW}----------------------------------------------------------${NC}"
+echo ""
+read -p "Reboot now? (y/N): " REBOOT_CHOICE
+if [[ "$REBOOT_CHOICE" =~ ^[Yy]$ ]]; then
+    echo "Rebooting..."
+    reboot
+fi
+
+exit 0
+```
+
+**Before Running:**
+
+1.  **Save:** Save the script to a file (e.g., `uninstaller_hokage.sh`).
+2.  **Executable:** Make it executable: `chmod +x uninstaller_hokage.sh`.
+3.  **Review:** Please read through the script. I've added many comments and tried to be safe, but you know your system and the installer best. Pay close attention to sections that restore critical configuration files like `/etc/pam.d/common-password`, `/etc/ssh/sshd_config`, and `/etc/nginx/nginx.conf`.
+4.  **Backup:** I cannot stress this enough: **BACK UP YOUR SYSTEM OR ANY IMPORTANT DATA** before running this.
+
+**Key improvements and considerations in this version:**
+
+* **Service Handling:** More robust stopping and disabling of systemd and init.d services.
+* **Xray Removal:** Uses the official Xray install script with the `remove --purge` command for cleaner removal.
+* **PPA Removal:** Checks for `add-apt-repository` command before attempting to use it.
+* **File/Directory Lists:** More organized and tries to remove items based on where the installer placed them.
+* **Configuration Restoration:**
+    * Attempts to restore critical files like `/etc/rc.local`, `/etc/ssh/sshd_config`, `/etc/default/dropbear`, `/etc/pam.d/common-password`, `/etc/nginx/nginx.conf`, and `/root/.profile` from backups if the installer created them (e.g., `*.bak_hokage_installer`) or from system defaults (e.g., `.dpkg-dist`, `/etc/skel/.profile`).
+    * If no backup is found, it attempts to revert specific known changes.
+* **Swap and IPv6:** More careful handling of swap file removal and IPv6 re-enabling.
+* **BBR Reversion:** Attempts to remove common BBR sysctl entries.
+* **IPTables:** Flushes rules and tries to clear persistent rules.
+* **Menu Scripts:** Provides a placeholder array `KNOWN_MENU_SCRIPTS` where you should list the exact names of scripts copied from the `menu.zip` to `/usr/local/sbin` for more precise removal.
+* **Safety:** More warnings and cautious steps, especially around critical system files.
+* **Reboot Prompt:** Strongly recommends and prompts for a reboot at the end.
+
+This uninstaller is significantly more detailed. Let me know if you have any specific parts you'd like to adjust or clari
