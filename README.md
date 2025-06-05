@@ -12,7 +12,8 @@ rm virtual
 ```
 
 2. BUKA PORT
-   ```
+   
+```
    cd
 rm port.sh
 wget -q https://github.com/Ilham24022001/ganteng/raw/refs/heads/main/port.sh && chmod +x port.sh && ./port.sh
@@ -28,9 +29,11 @@ rm virtual_debian12
 apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/virtual_debian12 && chmod +x virtual_debian12 && ./virtual_debian12
 cd root
 rm virtual_debian12
-
 ```
+
+
 1. jALANKAN SCRIPT VIRTUAL
+   
 ```
 lxc exec legacy-script-env -- bash
 ```
@@ -44,21 +47,15 @@ SELESAI
 
   ### MENGHAPUS LXD INSTALL ULANG
    
-   ```
+ ```
 cd root
 rm install_ulang_virtual
-   wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/install_ulang_virtual && chmod +x install_ulang_virtual && ./install_ulang_virtual
+wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/install_ulang_virtual && chmod +x install_ulang_virtual && ./install_ulang_virtual
 cd root
 rm install_ulang_virtual
-   ```
+```
 
-```
-cd root
-rm remove_virtual
-   wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/remove_virtual && chmod +x remove_virtual && ./remove_virtual
-cd root
-rm remove_virtual
-```
+
 ## 🚀 ALPHA SCRIPT
 
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
