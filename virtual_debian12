@@ -46,7 +46,7 @@ echo "🔧 Inisialisasi LXD..."
 sudo snap start lxd
 
 # Tunggu sampai LXD ready
-timeout=60
+timeout=20
 while [ $timeout -gt 0 ]; do
     if sudo lxd waitready; then
         break
