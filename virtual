@@ -1,358 +1,92 @@
 #!/bin/bash
+# ================================================
+# FIXED LXD INSTALLATION SCRIPT FOR DEBIAN 12
+# ================================================
 
-# ==============================================
-# VPN CONTAINER ULTIMATE SOLUTION (REVISED AGAIN)
-# ==============================================
+# --- [1] HAPUS SNAP LAMA ---
+echo "🧹 Membersihkan snap yang bermasalah..."
+sudo systemctl stop snapd
+sudo apt purge -y snapd
+sudo rm -rf /var/snap /snap /var/lib/snapd
 
-CONTAINER_NAME="vpn-container"
-CONTAINER_IMAGE="ubuntu:20.04" # For consistency, consider images:ubuntu/20.04
+# --- [2] INSTALL SNAP YANG FRESH ---
+echo "🔄 Menginstall ulang snapd..."
+sudo apt update
+sudo apt install -y snapd
+sudo systemctl start snapd
+sudo systemctl enable snapd
 
-# Fungsi untuk menampilkan pesan
-function show_msg() {
-    echo -e "\033[1;36m>>> $1\033[0m"
-}
+# Tunggu sampai snapd benar-benar ready
+sleep 10
 
-function show_error() {
-    echo -e "\033[1;31m!!! $1\033[0m"
-}
+# --- [3] UPDATE SNAPD ---
+echo "🆙 Memperbarui snapd core..."
+sudo snap install core
+sudo snap refresh core
 
-function show_success() {
-    echo -e "\033[1;32m✓ $1\033[0m"
-}
+# --- [4] INSTALL LXD ---
+echo "🐳 Menginstall LXD..."
+sudo snap install lxd --channel=latest/stable
+sudo snap refresh lxd --channel=latest/stable
 
-# 0. Check if running as root
-if [ "$(id -u)" -ne 0 ]; then
-  show_error "Skrip ini perlu dijalankan sebagai root atau dengan sudo."
-  exit 1
+# --- [5] INISIALISASI LXD ---
+echo "🔧 Inisialisasi LXD..."
+
+# Pastikan service LXD aktif
+sudo snap start lxd
+
+# Tunggu sampai LXD benar-benar ready
+timeout=30
+while [ $timeout -gt 0 ]; do
+    if sudo lxd waitready; then
+        break
+    fi
+    echo "⏳ Menunggu LXD ready... (sisa waktu: $timeout detik)"
+    sleep 1
+    ((timeout--))
+done
+
+if [ $timeout -eq 0 ]; then
+    echo "⚠️ LXD tidak ready dalam waktu yang ditentukan, restarting service..."
+    sudo snap restart lxd
+    sleep 10
 fi
 
-# 1. Full system cleanup (More Aggressive)
-function full_cleanup() {
-    show_msg "Membersihkan sistem sepenuhnya (lebih agresif)..."
+# Jalankan inisialisasi
+sudo lxd init --auto --storage-backend=dir
 
-    # Stop and remove all containers
-    if command -v lxc &> /dev/null; then
-        show_msg "Mencoba menghentikan dan menghapus semua kontainer LXC yang ada..."
-        lxc list --format csv | cut -d, -f1 | xargs -I {} lxc delete {} --force 2>/dev/null
-    fi
+# Verifikasi socket
+echo "🔍 Memverifikasi socket LXD..."
+if [ ! -S /var/snap/lxd/common/lxd/unix.socket ]; then
+    echo "⚠️ Socket LXD tidak ditemukan, restarting service..."
+    sudo snap restart lxd
+    sleep 10
+fi
 
-    # Remove LXD snap and packages
-    show_msg "Menghapus LXD snap dan package..."
-    if snap list | grep -q lxd; then
-        snap remove --purge lxd
-    fi
-    apt remove --purge lxd lxd-client lxd-tools -y
-    apt autoremove -y
+# --- [6] KONFIGURASI USER ---
+echo "👤 Konfigurasi user..."
+sudo usermod -aG lxd $USER
+newgrp lxd <<EONG
+echo "✅ LXD siap digunakan"
+lxc list
+EONG
 
-    # Kill any remaining LXD processes (use with caution)
-    # pkill -9 lxd # Uncomment if necessary, but can be risky
+# --- [7] VERIFIKASI ---
+echo "🔍 Verifikasi instalasi..."
+sudo lxc info
+lxc list
 
-    # Clean directories thoroughly
-    show_msg "Membersihkan direktori LXD secara menyeluruh..."
-    # Unmount any lxd related mounts first (best effort)
-    mount | grep 'lxd' | awk '{print $3}' | xargs -r -t umount -l 2>/dev/null
-    mount | grep '/var/snap/lxd' | awk '{print $3}' | xargs -r -t umount -l 2>/dev/null
+# --- [8] BUAT CONTAINER ---
+echo "🚀 Membuat container Ubuntu 20.04..."
+lxc launch ubuntu:20.04 ubuntu20
+lxc exec ubuntu20 -- apt update && lxc exec ubuntu20 -- apt upgrade -y
 
+cat <<EOF
 
-    rm -rf /var/snap/lxd
-    rm -rf /var/lib/lxd /var/log/lxd /var/cache/lxd
-    rm -rf /etc/lxd
-    rm -rf ~/.config/lxc /root/.config/lxc
-    rm -rf /root/snap/lxd
-    rm -rf /var/lib/snapd/hostfs/var/snap/lxd # Path sometimes seen
+✅ INSTALASI BERHASIL!
 
-    # Remove lxd group if it exists (optional, might require logout/login for users)
-    # if getent group lxd > /dev/null; then
-    #     show_msg "Menghapus grup lxd..."
-    #     groupdel lxd 2>/dev/null
-    # fi
-
-    show_msg "Pembersihan sistem selesai. Disarankan untuk REBOOT sistem sekarang sebelum melanjutkan."
-    read -p "Tekan [Enter] untuk melanjutkan tanpa reboot, atau [Ctrl+C] untuk batal dan reboot manual..."
-}
-
-# 2. System preparation
-function prepare_system() {
-    show_msg "Mempersiapkan sistem..."
-    apt update
-    apt upgrade -y
-    apt install -y snapd zfsutils-linux bridge-utils uidmap coreutils
-
-    show_msg "Memastikan snapd aktif..."
-    systemctl enable --now snapd.socket
-    systemctl start snapd
-    # Wait for snapd to be fully ready
-    show_msg "Menunggu snapd siap..."
-    snap wait system seed.loaded
-    sleep 5
-}
-
-# 3. Install LXD properly
-function install_lxd() {
-    show_msg "Menginstal LXD dengan benar..."
-    if ! snap install lxd --channel=latest/stable; then
-        show_error "Gagal menginstal LXD snap. Periksa koneksi internet dan status snapd."
-        snap version
-        snap changes
-        exit 1
-    fi
-
-    show_msg "Menunggu LXD daemon siap (maks 90 detik)..."
-    LXD_READY=false
-    for i in {1..18}; do # 18 * 5s = 90s
-        if lxd waitready --timeout=5; then
-            show_success "LXD daemon siap."
-            LXD_READY=true
-            break
-        fi
-        show_msg "LXD daemon belum siap, menunggu 5 detik lagi... (Attempt $i/18)"
-        sleep 5
-    done
-
-    if [ "$LXD_READY" = false ]; then
-        show_error "LXD daemon gagal siap setelah 90 detik."
-        lxc version # This might fail if daemon isn't up
-        snap services lxd
-        systemctl status snap.lxd.daemon.service || echo "Tidak bisa mendapatkan status service snap.lxd.daemon"
-        journalctl -u snap.lxd.daemon --no-pager -n 50 || echo "Tidak bisa mengambil log journal daemon LXD"
-        show_error "Lihat log di atas dan di /var/snap/lxd/common/lxd/logs/lxd.log"
-        exit 1
-    fi
-
-    ORIGINAL_USER=$(logname 2>/dev/null || echo $SUDO_USER)
-    if [ -n "$ORIGINAL_USER" ] && [ "$ORIGINAL_USER" != "root" ]; then
-        show_msg "Menambahkan pengguna $ORIGINAL_USER ke grup lxd..."
-        if ! getent group lxd > /dev/null; then
-             groupadd lxd || show_error "Gagal membuat grup lxd."
-        fi
-        usermod -aG lxd $ORIGINAL_USER
-        show_msg "PENTING: Pengguna $ORIGINAL_USER mungkin perlu logout/login agar keanggotaan grup lxd efektif."
-    fi
-
-    show_msg "Menginisialisasi LXD dengan preseed..."
-    LXD_PRESEED_DIR_STORAGE_PATH="/var/lib/lxd/storage-pools/default" # Path for dir storage
-    mkdir -p "$LXD_PRESEED_DIR_STORAGE_PATH" # Ensure path exists before LXD tries to use it
-
-    LXD_PRESEED_CONFIG=$(cat <<EOF
-config:
-  core.https_address: '[::]:8443'
-  core.trust_password: true
-storage_pools:
-- name: default
-  driver: dir
-  config:
-    source: ${LXD_PRESEED_DIR_STORAGE_PATH}
-networks:
-- name: lxdbr0
-  type: bridge
-  config:
-    ipv4.address: auto
-    ipv4.nat: "true"
-    ipv6.address: none
-profiles:
-- name: default
-  devices:
-    root:
-      path: /
-      pool: default
-      type: disk
-    eth0:
-      name: eth0
-      network: lxdbr0
-      type: nic
+Gunakan perintah berikut:
+- Akses container: lxc exec ubuntu20 -- bash
+- Cek status: lxc list
+- Stop container: lxc stop ubuntu20
 EOF
-)
-    echo "${LXD_PRESEED_CONFIG}" | lxd init --preseed
-    if [ $? -ne 0 ]; then
-        show_error "Inisialisasi LXD (lxd init --preseed) GAGAL!"
-        show_error "Periksa log LXD di /var/snap/lxd/common/lxd/logs/lxd.log untuk detail."
-        exit 1
-    fi
-    show_success "LXD berhasil diinisialisasi."
-    sleep 2 # Beri waktu agar semua service LXD stabil setelah init
-
-    show_msg "Verifikasi storage pool 'default'..."
-    if ! lxc storage show default > /tmp/lxd_storage_default.txt; then
-        show_error "Gagal mendapatkan info untuk storage pool 'default' setelah inisialisasi."
-        cat /tmp/lxd_storage_default.txt
-        show_error "Periksa log LXD di /var/snap/lxd/common/lxd/logs/lxd.log"
-        exit 1
-    fi
-    show_success "Info storage pool 'default':"
-    cat /tmp/lxd_storage_default.txt
-    grep -q "source: ${LXD_PRESEED_DIR_STORAGE_PATH}" /tmp/lxd_storage_default.txt || show_error "Path source di storage pool tidak sesuai!"
-    show_msg "Memeriksa path fisik storage pool: ${LXD_PRESEED_DIR_STORAGE_PATH}"
-    ls -ld "${LXD_PRESEED_DIR_STORAGE_PATH}" || show_error "Path fisik storage pool tidak dapat diakses!"
-
-    lxc network set lxdbr0 ipv4.nat true # Pastikan NAT aktif
-}
-
-# 4. Create container
-function create_container() {
-    show_msg "Membuat kontainer ${CONTAINER_NAME}..."
-
-    # Verifikasi ulang storage pool sebelum membuat kontainer
-    if ! lxc storage list | grep -q default; then
-        show_error "Storage pool 'default' tidak ditemukan SEBELUM pembuatan kontainer. Ada masalah besar dengan inisialisasi LXD."
-        exit 1
-    fi
-    show_msg "Storage pool 'default' terdeteksi."
-
-    show_msg "Menginisialisasi kontainer ${CONTAINER_NAME} dengan image ${CONTAINER_IMAGE} dan profil default..."
-    if ! lxc init ${CONTAINER_IMAGE} ${CONTAINER_NAME} -p default; then
-        show_error "Gagal menginisialisasi kontainer ${CONTAINER_NAME} (lxc init)."
-        show_error "Periksa log LXD di /var/snap/lxd/common/lxd/logs/lxd.log untuk detail."
-        lxc info ${CONTAINER_NAME} --show-log 2>/dev/null # Mungkin tidak ada jika init gagal total
-        exit 1
-    fi
-    show_success "Kontainer ${CONTAINER_NAME} berhasil diinisialisasi (tahap init)."
-
-    show_msg "Mengkonfigurasi kontainer ${CONTAINER_NAME}..."
-    lxc config set ${CONTAINER_NAME} security.nesting true
-    lxc config set ${CONTAINER_NAME} security.privileged true
-    lxc config set ${CONTAINER_NAME} limits.memory 1GB
-    lxc config set ${CONTAINER_NAME} limits.cpu 1
-
-    show_msg "Menjalankan kontainer ${CONTAINER_NAME}..."
-    if ! lxc start ${CONTAINER_NAME}; then
-        show_error "Gagal menjalankan kontainer ${CONTAINER_NAME} (lxc start)."
-        show_error "Ini seringkali merupakan titik di mana error 'No root device' muncul jika storage bermasalah."
-        show_error "Periksa log LXD SEKARANG di /var/snap/lxd/common/lxd/logs/lxd.log untuk detail."
-        lxc info ${CONTAINER_NAME} --show-log # Tampilkan log instance jika ada
-        exit 1
-    fi
-
-    show_msg "Menunggu kontainer ${CONTAINER_NAME} siap (cloud-init & network)..."
-    sleep 5
-    if ! lxc exec ${CONTAINER_NAME} -- cloud-init status --wait --timeout=120; then
-        show_error "cloud-init di kontainer ${CONTAINER_NAME} tidak selesai atau timeout."
-    else
-        show_success "cloud-init di kontainer ${CONTAINER_NAME} selesai."
-    fi
-
-    IP_ADDRESS=""
-    for i in {1..15}; do # Coba selama 45 detik
-        IP_ADDRESS=$(lxc list ${CONTAINER_NAME} -c4 --format csv | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
-        if [ -n "$IP_ADDRESS" ]; then
-            show_success "Kontainer ${CONTAINER_NAME} mendapatkan IP: ${IP_ADDRESS}"
-            break
-        fi
-        show_msg "Menunggu IP Address untuk ${CONTAINER_NAME}... (Attempt $i/15)"
-        sleep 3
-    done
-    if [ -z "$IP_ADDRESS" ]; then
-        show_error "Kontainer ${CONTAINER_NAME} tidak mendapatkan IP Address."
-    fi
-}
-
-# 5. Create reliable menu (Sama seperti sebelumnya, pastikan tidak ada sudo di dalam skrip menu)
-function create_reliable_menu() {
-    show_msg "Membuat menu yang reliable di /usr/local/bin/vpn-menu..."
-    tee /usr/local/bin/vpn-menu > /dev/null <<'EOL'
-#!/bin/bash
-
-CONTAINER_NAME="vpn-container"
-CONTAINER_IMAGE="ubuntu:20.04" # Atau images:ubuntu/20.04
-
-function menu_show_msg() { echo -e "\033[1;36m>>> $1\033[0m"; }
-function menu_show_error() { echo -e "\033[1;31m!!! $1\033[0m"; }
-
-unset XDG_RUNTIME_DIR
-export HOME=/root
-export LANG=C.UTF-8
-export LC_ALL=C.UTF-8
-
-if ! command -v lxc &> /dev/null; then
-    menu_show_error "Perintah lxc tidak ditemukan. LXD mungkin tidak terinstal dengan benar."
-    exit 1
-fi
-if ! lxc network get lxdbr0 parent &>/dev/null && ! lxc profile show default &>/dev/null ; then # Simple check if lxd is somewhat working
-    menu_show_error "LXD belum siap. Coba jalankan: sudo lxd init atau periksa instalasi LXD."
-    menu_show_error "Mungkin perlu menjalankan skrip instalasi utama lagi."
-    exit 1
-fi
-
-if ! lxc info $CONTAINER_NAME &>/dev/null; then
-    menu_show_msg "Kontainer '$CONTAINER_NAME' tidak ditemukan. Mencoba membuat (ini mungkin gagal jika setup LXD awal bermasalah)..."
-    if ! lxc init $CONTAINER_IMAGE $CONTAINER_NAME -p default; then
-        menu_show_error "Gagal membuat kontainer $CONTAINER_NAME. Jalankan skrip instalasi utama."
-        menu_show_error "Periksa log LXD di /var/snap/lxd/common/lxd/logs/lxd.log"
-        exit 1
-    fi
-    lxc config set $CONTAINER_NAME security.nesting true
-    lxc config set $CONTAINER_NAME security.privileged true
-    menu_show_msg "Kontainer $CONTAINER_NAME berhasil diinisialisasi."
-fi
-
-STATUS=$(lxc info $CONTAINER_NAME 2>/dev/null | grep "Status:" | awk '{print $2}')
-if [ "$STATUS" != "RUNNING" ]; then
-    menu_show_msg "Menjalankan kontainer $CONTAINER_NAME..."
-    if ! lxc start $CONTAINER_NAME; then
-        menu_show_error "Gagal menjalankan kontainer $CONTAINER_NAME."
-        menu_show_error "Periksa log LXD di /var/snap/lxd/common/lxd/logs/lxd.log"
-        lxc info $CONTAINER_NAME --show-log 2>/dev/null
-        exit 1
-    fi
-    menu_show_msg "Menunggu kontainer siap..."
-    sleep 5
-    lxc exec $CONTAINER_NAME -- cloud-init status --wait --timeout=60 || menu_show_msg "cloud-init mungkin belum selesai."
-fi
-
-menu_show_msg "Memasuki kontainer $CONTAINER_NAME..."
-exec lxc exec $CONTAINER_NAME -- su --login root
-EOL
-    chmod +x /usr/local/bin/vpn-menu
-
-    USERS_SHELL_RC=()
-    CURRENT_USER_HOME=$(eval echo ~$USER) # Get current user's home even if sudo
-    [ -f "$CURRENT_USER_HOME/.bashrc" ] && USERS_SHELL_RC+=("$CURRENT_USER_HOME/.bashrc")
-    if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-        HOME_SUDO_USER=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-        [ -f "$HOME_SUDO_USER/.bashrc" ] && ! [[ " ${USERS_SHELL_RC[@]} " =~ " $HOME_SUDO_USER/.bashrc " ]] && USERS_SHELL_RC+=("$HOME_SUDO_USER/.bashrc")
-    fi
-    [ -f "/root/.bashrc" ] && ! [[ " ${USERS_SHELL_RC[@]} " =~ " /root/.bashrc " ]] && USERS_SHELL_RC+=("/root/.bashrc")
-
-    for rc_file in "${USERS_SHELL_RC[@]}"; do
-        if [ -f "$rc_file" ]; then
-            show_msg "Menambahkan alias 'menu' ke $rc_file..."
-            sed -i "/^alias menu=/d" "$rc_file" # Hapus alias lama
-            echo "alias menu='sudo /usr/local/bin/vpn-menu'" >> "$rc_file"
-        fi
-    done
-    show_msg "Alias 'menu' dibuat/diperbarui. Jalankan 'source ~/.bashrc' atau buka terminal baru."
-}
-
-# 6. Final checks
-function final_checks() {
-    show_msg "Melakukan pemeriksaan akhir..."
-    if lxc list --format csv | grep -q "^${CONTAINER_NAME},RUNNING"; then
-        show_success "Kontainer ${CONTAINER_NAME} berjalan dengan sukses!"
-        return 0
-    else
-        show_error "Kontainer ${CONTAINER_NAME} TIDAK berjalan atau gagal dibuat."
-        lxc list
-        show_error "LANGKAH KRUSIAL: Periksa log LXD untuk detail error:"
-        show_error "sudo cat /var/snap/lxd/common/lxd/logs/lxd.log | less"
-        show_error "Cari pesan error yang berkaitan dengan 'No root device', 'storage', '${CONTAINER_NAME}', atau 'default' pool."
-        return 1
-    fi
-}
-
-# ==================
-# MAIN PROCESS FLOW
-# ==================
-show_msg "Memulai proses instalasi dan konfigurasi VPN Container..."
-
-full_cleanup
-prepare_system
-install_lxd
-create_container
-create_reliable_menu
-
-if final_checks; then
-    show_success "INSTALASI BERHASIL!"
-    echo -e "\nUntuk masuk ke kontainer, buka terminal baru dan jalankan perintah:"
-    echo -e "  \033[1;32mmenu\033[0m"
-else
-    show_error "Instalasi GAGAL."
-fi
