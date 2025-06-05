@@ -11,7 +11,16 @@ cd root
 rm virtual
 ```
 
-2.  NTUK DEBIAN 12
+2. BUKA PORT
+   ```
+   cd
+rm port.sh
+wget -q https://github.com/Ilham24022001/ganteng/raw/refs/heads/main/port.sh && chmod +x port.sh && ./port.sh
+cd
+rm port.sh
+```
+
+3.  NTUK DEBIAN 12
 
 ```
 cd root
