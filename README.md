@@ -15,7 +15,7 @@ rm virtual
 
 ```
 cd root
-rm virtual
+rm virtual_debian12
 apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/virtual_debian12 && chmod +x virtual_debian12 && ./virtual_debian12
 cd root
 rm virtual_debian12
