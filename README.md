@@ -196,8 +196,11 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://github.com/
 ### UPDATE SCRIPT
 
 ```
-
- wget https://github.com/hokagelegend9999/coklat/raw/refs/heads/main/update.sh && chmod +x update.sh && ./update.sh
+cd root
+rm update_coklat
+ wget https://github.com/hokagelegend9999/install/raw/refs/heads/main/update_coklat && chmod +x update_coklat && ./update_coklat
+cd root
+rm update_coklat
 
 ```
 ---------------------------------------------------------------------------------------------------------------------------------------------
