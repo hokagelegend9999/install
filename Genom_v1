@@ -304,7 +304,7 @@ ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
 # --- Update dan Instal Dependensi Umum untuk Ubuntu 24.04 ---
 echo -e "${GREEN}Memperbarui sistem dan menginstal dependensi...${NC}"
 apt update -y && apt upgrade -y
-apt install git curl python3 python3-pip apt-transport-https ca-certificates software-properties-common ntpdate wget netcat-openbsd ncurses-bin chrony -y
+apt install git curl python3 apt  figlet python3-pip apt-transport-https ca-certificates software-properties-common ntpdate wget netcat-openbsd ncurses-bin chrony -y
 
 cd
 clear
