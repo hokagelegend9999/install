@@ -301,6 +301,14 @@ apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub
 </code></pre>
 
 
+## 2. UPDATE 
+
+```
+cd root
+rm update.sh
+wget https://github.com/hokagelegend9999/genom/raw/refs/heads/main/menu/update.sh && chmod +x update.sh && ./update.sh
+```
+
 
 ### TESTED ON OS 
 - UBUNTU 22 & 24
