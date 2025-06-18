@@ -281,7 +281,7 @@ apt update && apt upgrade -y && apt install -y wget screen && wget -q https://ra
 
 
 
-### BEFORE INSTALL
+### BEFORE INSTALL OS UBUNTU 25 GENOM
 1.
 
 ```
@@ -297,14 +297,14 @@ apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub
 ### INSTALL SCRIPT 
 
 
-<pre><code>apt install -y && apt update -y && apt upgrade -y && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/hokagelegend9999/force/refs/heads/main/premi.sh && chmod +x premi.sh && ./premi.sh
+<pre><code>apt install -y && apt update -y && apt upgrade -y && apt install lolcat -y && gem install lolcat && wget -q  apt update && apt upgrade -y && wget -q https://github.com/hokagelegend9999/genom/raw/refs/heads/main/install && chmod +x install  && ./install 
 </code></pre>
 
 
 
 ### TESTED ON OS 
-- UBUNTU 20.04.05
-- DEBIAN 10
+- UBUNTU 22 & 24
+
 
 
 
