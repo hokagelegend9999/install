@@ -114,55 +114,6 @@ wget https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main
 ```
 
 
-1. Aktifkan IP Forwarding di server VPS (Ubuntu 20)
-Edit /etc/sysctl.conf, pastikan ada baris ini tidak dikomen (hapus tanda # jika ada):
-
-bash
-Copy
-Edit
-net.ipv4.ip_forward=1
-Kemudian jalankan perintah ini untuk apply:
-
-bash
-Copy
-Edit
-sudo sysctl -p
-2. Setup NAT dengan iptables (Supaya paket dari VPN client bisa keluar ke internet)
-Misal interface internet kamu adalah eth0 (lihat di ip a):
-
-bash
-Copy
-Edit
-sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-Lalu tambahkan aturan forward agar trafik dari VPN bisa diterima:
-
-bash
-Copy
-Edit
-
-```
-sudo iptables -A FORWARD -i ppp+ -o eth0 -j ACCEPT
-sudo iptables -A FORWARD -i eth0 -o ppp+ -m state --state RELATED,ESTABLISHED -j ACCEPT
-ppp+ adalah interface yang dipakai PPTP (dynamic ppp interface).
-```
-3. Simpan aturan iptables agar tetap aktif setelah reboot
-Install paket iptables-persistent:
-
-bash
-Copy
-Edit
-sudo apt-get install iptables-persistent
-sudo netfilter-persistent save
-4. Pastikan konfigurasi PPTP daemon /etc/ppp/options dan /etc/ppp/pptpd-options
-Biasanya sudah default benar, tapi kamu bisa cek dan pastikan ada:
-
-Di /etc/ppp/options:
-
-Copy
-Edit
-ms-dns 8.8.8.8
-ms-dns 8.8.4.4
-
 
 ## SPESIAL ALL OS UBUNTU - DEBIAN 
 
@@ -228,36 +179,23 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 wget -q  https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/update_humble &&  chmod +x update_humble && ./update_humble
 ```
 
-sudo apt install socat -y
-sudo apt install netcat -y
+-------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------
 
-
-## - Update Auto Reboot jam 12 Malam
-## - Update Maximal IP User & IP Unlimited
-
-  
-## setelah REBOOT pakai port di bawah ini :
-
-- Port 500
-- Port 40000
-- Port 81
-- Port51443
-- Port 58080
-- Port 666
 
 # INSTALLASI AUTO SCRYPT LITE2
 
 ```
 apt update && apt upgrade -y && apt install -y wget screen && wget -q https://raw.githubusercontent.com/hokagelegend9999/lite2/main/setup.sh && chmod +x setup.sh && screen -S setup ./setup.sh
-
 ```
----------------------------------------------------------------------------
 
 ## SUPPORT OS  
   
 ➽ Debian 10 & 11 (recommended)   
 ➽ Ubuntu 20.04   
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 ### INSTALASI SCRIPT GAS :     
 
@@ -278,7 +216,7 @@ apt update && apt upgrade -y && apt install -y wget screen && wget -q https://ra
 
 
 -----------------------------------------------------------------------------------------------------
-
+===========================================================================================================================================
 
 
 ### BEFORE INSTALL OS UBUNTU  22 & 24 GENOM
