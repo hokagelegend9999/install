@@ -297,7 +297,7 @@ apt-get update && apt-get upgrade -y && apt dist-upgrade -y && update-grub
 ### INSTALL SCRIPT 
 
 
-<pre><code>apt install -y && apt update -y && apt upgrade -y && apt install lolcat -y && gem install lolcat && wget -q  apt update && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/Genom_v1 && chmod +x Genom_v1  && ./Genom_v1 
+<pre><code> wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/Genom_v1 && chmod +x Genom_v1  && ./Genom_v1 
 </code></pre>
 
 
