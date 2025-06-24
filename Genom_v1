@@ -380,7 +380,7 @@ res10() {
 
 res11() {
     echo -e "${GREEN}    Mengkonfigurasi Dropbear...${NC}"
-    sudo sed -i 's/^[[:space:]]*#*DROPBEAR_EXTRA_ARGS=.*/DROPBEAR_EXTRA_ARGS="-p 50000 -p 109"/' /etc/default/dropbear
+    sudo sed -i 's/^[[:space:]]*#*DROPBEAR_EXTRA_ARGS=.*/DROPBEAR_EXTRA_ARGS="-p 50000 -p 109 -p 110 -p 69 -b /etc/issue.net"@g' /etc/default/dropbear
     sudo sed -i 's/^#DROPBEAR_PORT=.*/DROPBEAR_PORT=149/' /etc/default/dropbear
     sudo mkdir -p /etc/dropbear/
     sudo dropbearkey -t dss -f /etc/dropbear/dropbear_dss_host_key
