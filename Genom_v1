@@ -400,6 +400,22 @@ res11() {
      sudo systemctl enable nginx
     clear
 }
+res12() {
+    echo -e "${GREEN}   Mengatur jadwal reboot harian...${NC}"
+    
+    # Definisikan cron job yang ingin ditambahkan
+    REBOOT_JOB="0 0 * * * /sbin/reboot"
+
+    # Periksa apakah cron job tersebut sudah ada
+    if ! sudo crontab -l | grep -Fxq "$REBOOT_JOB"; then
+        # Jika TIDAK ADA, maka tambahkan
+        (sudo crontab -l 2>/dev/null; echo "$REBOOT_JOB") | sudo crontab -
+        echo -e "${GREEN}   -> Jadwal reboot otomatis setiap jam 12 malam telah berhasil ditambahkan.${NC}"
+    else
+        # Jika SUDAH ADA, beri pesan dan jangan lakukan apa-apa
+        echo -e "${YELLOW}   -> Jadwal reboot otomatis sudah ada, tidak ada yang diubah.${NC}"
+    fi
+}
 
 # --- Proses Instalasi HOKAGE LEGEND ---
 function SKT4100(){
@@ -447,6 +463,11 @@ function SKT4100(){
     echo -e "${BIBlue}│ ${BGCOLOR}    CONFIGURING DROPBEAR              ${NC}${BIBlue} │${NC}"
     echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
     res11
+
+    echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+    echo -e "${BIBlue}│ ${BGCOLOR}  ATUR JADWAL REBOOT              ${NC}${BIBlue} │${NC}"
+    echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+    res12
 }
 SKT4100 # Memanggil fungsi SKT4100
 
