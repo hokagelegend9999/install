@@ -383,6 +383,7 @@ res10() {
 
 res11() {
     echo -e "${GREEN}    Mengkonfigurasi Dropbear...${NC}"
+    apt install dropbear -y
     sudo sed -i '/^DROPBEAR_PORT=/d' /etc/default/dropbear
     sudo sed -i '/^DROPBEAR_EXTRA_ARGS=/d' /etc/default/dropbear
     echo 'DROPBEAR_PORT=149' | sudo tee -a /etc/default/dropbear
