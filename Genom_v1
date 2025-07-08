@@ -237,12 +237,14 @@ if [[ $domain == "1" ]]; then
     done
     echo ""
     mkdir -p /etc/xray
+    mkdir -p /var/lib/kyt >/dev/null 2>&1
     mkdir -p /etc/v2ray
     touch /etc/xray/domain
     touch /etc/v2ray/domain
     echo "$dns1" > /etc/xray/domain
     echo "$dns1" > /etc/v2ray/domain
     echo "IP=$dns1" > /var/lib/ipvps.conf
+    echo "IP=${host1}" >> /var/lib/kyt/ipvps.conf
     clear
     echo " "
     until [[ $dns2 =~ ^[a-zA-Z0-9_.-]+$ ]]; do
@@ -253,6 +255,7 @@ if [[ $domain == "1" ]]; then
     touch /etc/xray/nsdomain
     echo "$dns2" > /etc/xray/nsdomain
     echo "$dns2" >/etc/xray/dns
+    
 fi
 
 # --- Daftar Tema Warna ---
@@ -375,6 +378,9 @@ res9() {
 
 res10() {
     echo -e "${GREEN}    Memulai pengunduhan UDP CUSTOM...${NC}"
+    mkdir -p /usr/local/kyt/
+    wget -q -O /usr/local/kyt/udp-mini "${REPO}Fls/udp-mini"
+     chmod +x /usr/local/kyt/udp-mini
     wget https://raw.githubusercontent.com/hokagelegend9999/genom/main/SYSTEM/udp-custom.sh -O udp-custom.sh
     chmod +x udp-custom.sh
     bash udp-custom.sh
@@ -549,6 +555,10 @@ sudo chmod 755 /home/vps
 sudo find /home/vps/public_html -type f -exec chmod 644 {} \;
 sudo find /home/vps/public_html -type d -exec chmod 755 {} \;
 sudo chown -R www-data:www-data /home/vps/public_html
+mkdir -p /etc/kyt/limit/vmess/ip
+mkdir -p /etc/kyt/limit/vless/ip
+mkdir -p /etc/kyt/limit/trojan/ip
+mkdir -p /etc/kyt/limit/ssh/ip
 # --- Log Waktu Instalasi ---
 secs_to_human "$(($(date +%s) - ${start}))" | tee -a log-install.txt
 sleep 3
