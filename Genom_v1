@@ -402,6 +402,7 @@ res11() {
     sudo chmod 600 /etc/dropbear/dropbear_rsa_host_key
     sudo chown root:root /etc/dropbear/dropbear_dss_host_key
     sudo chown root:root /etc/dropbear/dropbear_rsa_host_key
+    sed -i 's/^NO_START=.*/NO_START=0/' /etc/default/dropbear
     sudo systemctl daemon-reload
     sudo systemctl restart dropbear
      sudo systemctl enable nginx
