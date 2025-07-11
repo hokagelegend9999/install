@@ -253,5 +253,5 @@ wget https://github.com/hokagelegend9999/genom/raw/refs/heads/main/menu/update.s
 # INSTALL LITE SUPER UBUNTU 24 TERBARU
 
 ```
-sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 && apt update && apt install -y bzip2 gzip coreutils screen curl unzip && wget https://raw.githubusercontent.com/hokagelegend9999/lite/refs/heads/main/setup.sh && chmod +x setup.sh && sed -i -e 's/\r$//' setup.sh && screen -S setup ./setup.sh
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 && apt update && apt install -y bzip2 gzip coreutils screen curl unzip && wget https://github.com/hokagelegend9999/install/raw/refs/heads/main/Lite-Super && sed -i -e 's/\r$//' setup.sh && screen -S setup ./setup.sh
 ```
