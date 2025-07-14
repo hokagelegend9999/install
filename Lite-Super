@@ -160,12 +160,13 @@ else
 gg="AM"
 fi
 curl -sS ipv4.icanhazip.com > /etc/myipvps
-# Mendefinisikan lokasi file log secara absolut
+# Definisikan lokasi file log secara absolut
 LOG_FILE="/root/log-install.txt"
 
-# Menghapus file log lama jika ada, untuk memastikan log ini bersih (opsional)
+# Opsional: Hapus file log lama agar bersih
 rm -f $LOG_FILE
 
+# Mulai menulis isi file log
 echo "" | tee -a $LOG_FILE
 echo "=================================================================="  | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
@@ -192,6 +193,9 @@ echo "   - Shadowsocks gRPC          : 443" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
 echo "=================================================================="  | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
+
+# Sekarang tampilkan isi file setelah selesai ditulis
+cat $LOG_FILE
 
 # Bagian di bawah ini diasumsikan dari script asli Anda
 # rm /root/setup.sh >/dev/null 2>&1
