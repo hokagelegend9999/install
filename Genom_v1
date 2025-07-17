@@ -426,7 +426,7 @@ res12() {
 }
 
 # --- Proses Instalasi HOKAGE LEGEND ---
-function SKT4100(){
+function HOKAGEINSTALL(){
     echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
     echo -e "${BIBlue}│ ${BGCOLOR}    PROCESS INSTALLED SSH WS / OPENVPN    ${NC}${BIBlue} │${NC}"
     echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
@@ -477,7 +477,7 @@ function SKT4100(){
     echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
     res12
 }
-SKT4100 # Memanggil fungsi SKT4100
+HOKAGEINSTALL # Memanggil fungsi SKT4100
 
 # --- Konfigurasi Post-Instalasi ---
 # Pastikan file /home/re_otm ada dan berikan nilai default jika tidak
@@ -569,26 +569,32 @@ cd
 # --- Kirim Pesan Sukses ke Telegram ---
 IPVPS=$(curl -s https://ipinfo.io/ip)
 HOSTNAME=$(hostname)
-OS=$(lsb_release -d | awk '{print $2,$3,$4}')
+USERVPS=$(whoami)
+OS=$(lsb_release -d | awk -F"\t" '{print $2}')
 ISP=$(curl -s https://ipinfo.io/org | awk '{print $2,$3,$4}')
+USER=$client_name
 REGION=$(curl -s ipinfo.io/region)
 DATE=$(date '+%Y-%m-%d')
 TIME=$(date '+%H:%M:%S')
 DOMAIN=$(cat /etc/xray/domain)
+exp_date=$(echo "$permission_file" | awk '{print $3}')
 
 MESSAGE="\`\`\`
-❏━━━━━━━━━━━━━━━━━❏
-🤖 Hokage Store Project 🤖
-❏━━━━━━━━━━━━━━━━━❏
-❖ Status        : Active
-❖ Status SC     : Admin Access
-❖ Linux OS      : $OS
-❖ ISP           : $ISP
-❖ IP VPS        : $IPVPS
-❖ Area ISP      : $REGION
-❖ Waktu         : $TIME
-❖ Tanggal       : $DATE
-❖ Domain        : $DOMAIN
+❏━━━━━━━━━━━━━━━━━━━━━━━━━━❏
+ 🤖 Hokage Store Project 🤖
+❏━━━━━━━━━━━━━━━━━━━━━━━━━━❏
+❖ Status      : Active
+❖ User VPS    : $USERVPS
+❖ User SC     : $USER
+❖ HOST VPS    : $HOSTNAME
+❖ Linux OS    : $OS
+❖ ISP         : $ISP
+❖ IP VPS      : $IPVPS
+❖ Area ISP    : $REGION
+❖ Waktu       : $TIME
+❖ Tanggal     : $DATE
+❖ Domain      : $DOMAIN
+❖ Expired     : $exp_date
 ❏━━━━━━━━***************━━━━━━━━━❏
 👑 Dev https://t.me/hokagelegend1 👑
 ❏━━━━━━━******************━━━━━━━━❏
