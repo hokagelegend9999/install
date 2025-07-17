@@ -577,7 +577,7 @@ REGION=$(curl -s ipinfo.io/region)
 DATE=$(date '+%Y-%m-%d')
 TIME=$(date '+%H:%M:%S')
 DOMAIN=$(cat /etc/xray/domain)
-exp_date=$(echo "$permission_file" | awk '{print $3}')
+exp_date=$(echo "$permission_file" | grep -w "$client_name" | awk '{print $3}')
 
 MESSAGE="\`\`\`
 ❏━━━━━━━━━━━━━━━━━━━━━━━━━━❏
