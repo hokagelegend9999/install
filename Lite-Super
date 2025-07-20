@@ -161,57 +161,63 @@ gg="AM"
 fi
 curl -sS ipv4.icanhazip.com > /etc/myipvps
 # Definisikan lokasi file log secara absolut
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Error: Script harus dijalankan sebagai root atau dengan sudo."
+  exit 1
+fi
+
+# Lokasi file log
 LOG_FILE="/root/log-install.txt"
 
-# Opsional: Hapus file log lama agar bersih
-rm -f $LOG_FILE
+# Hapus file log lama jika ada
+rm -f "$LOG_FILE"
 
-# Mulai menulis isi file log
-echo "" | tee -a $LOG_FILE
-echo "=================================================================="  | tee -a $LOG_FILE
-echo "" | tee -a $LOG_FILE
-echo "   >>> Service & Port"  | tee -a $LOG_FILE
-echo "   - OpenSSH                 : 22"  | tee -a $LOG_FILE
-echo "   - SSH Websocket             : 80" | tee -a $LOG_FILE
-echo "   - SSH SSL Websocket         : 443" | tee -a $LOG_FILE
-echo "   - Stunnel4                  : 222, 777" | tee -a $LOG_FILE
-echo "   - Dropbear                  : 109, 143" | tee -a $LOG_FILE
-echo "   - Badvpn                    : 7100-7900" | tee -a $LOG_FILE
-echo "   - Nginx                     : 81" | tee -a $LOG_FILE
-echo "   - Vmess WS TLS              : 443" | tee -a $LOG_FILE
-echo "   - Vless WS TLS              : 443" | tee -a $LOG_FILE
-echo "   - Trojan WS TLS             : 443" | tee -a $LOG_FILE
-echo "   - Shadowsocks WS TLS        : 443" | tee -a $LOG_FILE
-echo "   - Vmess WS none TLS         : 80" | tee -a $LOG_FILE
-echo "   - Vless WS none TLS         : 80" | tee -a $LOG_FILE
-echo "   - Trojan WS none TLS        : 80" | tee -a $LOG_FILE
-echo "   - Shadowsocks WS none TLS   : 80" | tee -a $LOG_FILE
-echo "   - Vmess gRPC                : 443" | tee -a $LOG_FILE
-echo "   - Vless gRPC                : 443" | tee -a $LOG_FILE
-echo "   - Trojan gRPC               : 443" | tee -a $LOG_FILE
-echo "   - Shadowsocks gRPC          : 443" | tee -a $LOG_FILE
-echo "" | tee -a $LOG_FILE
-echo "=================================================================="  | tee -a $LOG_FILE
-echo "" | tee -a $LOG_FILE
+# Mulai menulis ke log
+{
+  echo ""
+  echo "=================================================================="
+  echo ""
+  echo "   >>> Service & Port"
+  echo "   - OpenSSH                 : 22"
+  echo "   - SSH Websocket           : 80"
+  echo "   - SSH SSL Websocket       : 443"
+  echo "   - Stunnel4                : 222, 777"
+  echo "   - Dropbear                : 109, 143"
+  echo "   - Badvpn                  : 7100-7900"
+  echo "   - Nginx                   : 81"
+  echo "   - Vmess WS TLS            : 443"
+  echo "   - Vless WS TLS            : 443"
+  echo "   - Trojan WS TLS           : 443"
+  echo "   - Shadowsocks WS TLS      : 443"
+  echo "   - Vmess WS none TLS       : 80"
+  echo "   - Vless WS none TLS       : 80"
+  echo "   - Trojan WS none TLS      : 80"
+  echo "   - Shadowsocks WS none TLS : 80"
+  echo "   - Vmess gRPC              : 443"
+  echo "   - Vless gRPC              : 443"
+  echo "   - Trojan gRPC             : 443"
+  echo "   - Shadowsocks gRPC        : 443"
+  echo ""
+  echo "=================================================================="
+  echo ""
+} | tee -a "$LOG_FILE"
 
-# Sekarang tampilkan isi file setelah selesai ditulis
-cat $LOG_FILE
+# Tampilkan isi log
+echo "Isi file log ($LOG_FILE):"
+cat "$LOG_FILE"
 
-# Bagian di bawah ini diasumsikan dari script asli Anda
-# rm /root/setup.sh >/dev/null 2>&1
-# rm /root/ins-xray.sh >/dev/null 2>&1
-# rm /root/insshws.sh >/dev/null 2>&1
-# secs_to_human "$(($(date +%s) - ${start}))" | tee -a $LOG_FILE
+# Contoh bagian lain dari script (hapus file setup.sh dan lain-lain)
+rm -f /root/setup.sh /root/ins-xray.sh /root/insshws.sh
 
-# Menampilkan isi file log yang sudah pasti dibuat di /root/log-install.txt
-echo "Selesai. Menampilkan isi log:"
-cat $LOG_FILE
-rm /root/setup.sh >/dev/null 2>&1
-rm /root/ins-xray.sh >/dev/null 2>&1
-rm /root/insshws.sh >/dev/null 2>&1
-secs_to_human "$(($(date +%s) - ${start}))" | tee -a log-install.txt
+# Jika ada fungsi secs_to_human dan variabel start, jalankan (contoh)
+# secs_to_human "$(($(date +%s) - ${start}))" | tee -a "$LOG_FILE"
+
 echo -e ""
-echo " Auto reboot in 10 Seconds "
+echo "Auto reboot in 10 seconds..."
 sleep 10
-rm -rf setup.sh
+
+# Hapus setup.sh jika ada di folder kerja
+rm -f setup.sh
+
+# Reboot sistem
 reboot
