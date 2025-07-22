@@ -608,11 +608,24 @@ sleep 2
 echo -e "${BIBlue}════════════════════════════════════════${NC}"
 echo -e "${BIBlue} Script telah berhasil di install"
 rm -rf *
-rm /root/home
+#!/bin/bash
 echo -e ""
-read -rp "[\e[1;31mWARNING\e[0m] Reboot sekali biar ga error lur [default y](y/n)? " -e answer
+echo -e "❏━━━━━━━━━━━✦ SYSTEM NOTICE ✦━━━━━━━━━━━❏"
+echo -e "\e[1;31m⚠️ Reboot sekali biar ga error cuyy \e[0m"
+echo -e "❏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━❏"
+echo -en "\e[1;36m[default y](y/n)?\e[0m > "
+
+# Baca input user
+read -r answer
+
+# Cek input
 if [[ "$answer" =~ ^[Nn]$ ]]; then
+    echo -e "\n❌ Reboot dibatalkan oleh user."
     exit 0
 else
-    cat /dev/null > ~/.bash_history && history -c && reboot
+    echo -e "\n🔄 Melakukan reboot sistem..."
+    sleep 1
+    cat /dev/null > ~/.bash_history && history -c
+    reboot
 fi
+
