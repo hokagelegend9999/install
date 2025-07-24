@@ -241,7 +241,7 @@ if [[ $domain == "1" ]]; then
     mkdir -p /etc/v2ray
     touch /etc/xray/domain
     touch /etc/v2ray/domain
-    touch /etc/nsdomain
+    echo "$dns1" > /etc/nsdomain
     echo "$dns1" > /etc/xray/domain
     echo "$dns1" > /etc/v2ray/domain
     echo "IP=$dns1" > /var/lib/ipvps.conf
