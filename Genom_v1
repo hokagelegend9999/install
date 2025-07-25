@@ -425,6 +425,24 @@ res12() {
         echo -e "${YELLOW}   -> Jadwal reboot otomatis sudah ada, tidak ada yang diubah.${NC}"
     fi
 }
+res13() {
+    echo -e "${GREEN}   Mengatur jadwal update kuota otomatis...${NC}"
+    
+    # Definisikan cron job yang ingin ditambahkan (setiap 1 menit)
+    # Redirect output >/dev/null 2>&1 agar tidak membuat log spam
+    USAGE_JOB="*/1 * * * * /usr/bin/update-usage.sh >/dev/null 2>&1"
+
+    # Periksa apakah cron job tersebut sudah ada
+    if ! sudo crontab -l | grep -Fxq "$USAGE_JOB"; then
+        # Jika TIDAK ADA, maka tambahkan
+        (sudo crontab -l 2>/dev/null; echo "$USAGE_JOB") | sudo crontab -
+        echo -e "${GREEN}   -> Jadwal update kuota setiap 1 menit telah berhasil ditambahkan.${NC}"
+    else
+        # Jika SUDAH ADA, beri pesan dan jangan lakukan apa-apa
+        echo -e "${YELLOW}   -> Jadwal update kuota otomatis sudah ada, tidak ada yang diubah.${NC}"
+    fi
+}
+
 
 # --- Proses Instalasi HOKAGE LEGEND ---
 function HOKAGEINSTALL(){
@@ -475,6 +493,11 @@ function HOKAGEINSTALL(){
 
     echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
     echo -e "${BIBlue}│ ${BGCOLOR}  ATUR JADWAL REBOOT              ${NC}${BIBlue} │${NC}"
+    echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
+    res12
+
+ echo -e "${BIBlue}╭══════════════════════════════════════════╮${NC}"
+    echo -e "${BIBlue}│ ${BGCOLOR} PANTAU PEMAKAIANA KUOTA           ${NC}${BIBlue} │${NC}"
     echo -e "${BIBlue}╰══════════════════════════════════════════╯${NC}"
     res12
 }
