@@ -318,17 +318,19 @@ ISP=$(cat /root/.isp)
 IP=$(curl -sS ipv4.icanhazip.com)
 CITY=$(cat /root/.city)
 TIMEZONE=$(printf '%(%H:%M:%S)T')
+Exp-Sc=$(curl $izinsc | grep $MYIP | awk '{print $4}')
+User=$(cat /usr/bin/user)
     TEXT="
 <code>────────────────────</code>
 <b>⚡𝗡𝗢𝗧𝗜𝗙 𝗜𝗡𝗦𝗧𝗔𝗟𝗟 𝗦𝗖𝗥𝗜𝗣𝗧⚡</b>
 <code>────────────────────</code>
-<code>User     :</code><code>$username</code>
-<code>ISP      :</code><code>$ISP</code>
-<code>CITY     :</code><code>$CITY</code>
-<code>IP       :</code><code>$IP</code>
-<code>DATE     :</code><code>$DATE</code>
-<code>Time     :</code><code>$TIMEZONE</code>
-<code>Exp Sc.  :</code><code>$exp</code>
+<code>USER NAME     :</code><code>$User</code>
+<code>ISP           :</code><code>$ISP</code>
+<code>CITY          :</code><code>$CITY</code>
+<code>IP            :</code><code>$IP</code>
+<code>DATE          :</code><code>$DATE</code>
+<code>Time          :</code><code>$TIMEZONE</code>
+<code>Expired       :</code><code>$Exp-Sc</code>
 <code>─────────────────────────────</code>
 <b> HOKAGE CENTER VPN STORE SCRIPT  </b>
 <code>─────────────────────────────</code>
