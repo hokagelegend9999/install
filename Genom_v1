@@ -427,20 +427,28 @@ res12() {
     fi
 }
 res13() {
-    echo -e "${GREEN}   Mengatur jadwal update kuota otomatis...${NC}"
+    echo -e "${GREEN}    Mengatur jadwal update kuota otomatis...${NC}"
     
-    # Definisikan cron job yang ingin ditambahkan (setiap 1 menit)
-    # Redirect output >/dev/null 2>&1 agar tidak membuat log spam
-    USAGE_JOB="*/1 * * * * /usr/bin/update-usage.sh >/dev/null 2>&1"
+# Definisikan cron job yang ingin ditambahkan
+USAGE_JOB="*/1 * * * * /usr/bin/update-usage.sh >/dev/null 2>&1"
+USAGE_JOB2="*/2 * * * * /usr/bin/update-ssh-usage.sh >/dev/null 2>&1"
 
-    # Periksa apakah cron job tersebut sudah ada
+# Periksa dan tambahkan jadwal untuk kuota XRAY
     if ! sudo crontab -l | grep -Fxq "$USAGE_JOB"; then
-        # Jika TIDAK ADA, maka tambahkan
         (sudo crontab -l 2>/dev/null; echo "$USAGE_JOB") | sudo crontab -
-        echo -e "${GREEN}   -> Jadwal update kuota setiap 1 menit telah berhasil ditambahkan.${NC}"
+        echo -e "${GREEN}    -> Jadwal update kuota xray setiap 1 menit telah berhasil ditambahkan.${NC}"
     else
-        # Jika SUDAH ADA, beri pesan dan jangan lakukan apa-apa
-        echo -e "${YELLOW}   -> Jadwal update kuota otomatis sudah ada, tidak ada yang diubah.${NC}"
+        echo -e "${YELLOW}    -> Jadwal update kuota xray sudah ada, tidak ada yang diubah.${NC}"
+    fi
+
+# Periksa dan tambahkan jadwal untuk kuota SSH
+    if ! sudo crontab -l | grep -Fxq "$USAGE_JOB2"; then
+    # PERBAIKAN 1: Gunakan variabel $USAGE_JOB2 di sini
+        (sudo crontab -l 2>/dev/null; echo "$USAGE_JOB2") | sudo crontab -
+    # PERBAIKAN 2: Sesuaikan pesan dengan jadwal (setiap 2 menit)
+        echo -e "${GREEN}    -> Jadwal update kuota sshws setiap 2 menit telah berhasil ditambahkan.${NC}"
+    else
+        echo -e "${YELLOW}    -> Jadwal update kuota sshws sudah ada, tidak ada yang diubah.${NC}"
     fi
 }
 
