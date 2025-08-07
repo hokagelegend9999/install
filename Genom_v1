@@ -167,6 +167,7 @@ rm -rf /etc/phreakers
 mkdir -p /etc/phreakers
 mkdir -p /etc/phreakers/theme
 mkdir -p /var/lib/ >/dev/null 2>&1
+mkdir /etc/kuota-ssh
 echo "IP=" >> /var/lib/ipvps.conf
 clear
 
