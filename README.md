@@ -255,3 +255,9 @@ wget https://github.com/hokagelegend9999/genom/raw/refs/heads/main/menu/update.s
 ```
 sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 && apt update && apt install -y bzip2 gzip coreutils screen curl unzip && wget https://github.com/hokagelegend9999/install/raw/refs/heads/main/Lite-Super && chmod +x Lite-Super && sed -i -e 's/\r$//' Lite-Super && screen -S setup ./Lite-Super
 ```
+
+# INSTALL SCRIPT FORCE
+
+```
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.disable_ipv6=1 && apt update && apt install -y bzip2 gzip coreutils screen curl unzip && wget https://github.com/hokagelegend9999/install/raw/refs/heads/main/force && chmod +x force && sed -i -e 's/\r$//' force && screen -S setup ./force
+```
