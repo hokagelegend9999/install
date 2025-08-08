@@ -996,7 +996,9 @@ REGION=$(curl -s ipinfo.io/region)
 DATE=$(date '+%Y-%m-%d')
 TIME=$(date '+%H:%M:%S')
 DOMAIN=$(cat /etc/xray/domain)
-exp_date=$(echo "$permission_file" | grep -w "$client_name" | awk '{print $3}')
+USER=$(cat /usr/bin/user)
+VERSI=$(cat /usr/bin/ver)
+EXPIRED=$(cat /usr/bin/e)
 
 MESSAGE="\`\`\`
 ❏━━━━━━━━━━━━━━━━━━━━━━━━━━❏
@@ -1006,6 +1008,7 @@ MESSAGE="\`\`\`
 ❖ SCRIPT      : FORCE
 ❖ User VPS    : $USERVPS
 ❖ User SC     : $USER
+❖ VERSI SC    : $VERSI
 ❖ HOST VPS    : $HOSTNAME
 ❖ Linux OS    : $OS
 ❖ ISP         : $ISP
@@ -1014,7 +1017,7 @@ MESSAGE="\`\`\`
 ❖ Waktu       : $TIME
 ❖ Tanggal     : $DATE
 ❖ Domain      : $DOMAIN
-❖ Expired     : $exp_date
+❖ Expired     : $EXPIRED
 ❏━━━━━━━━***************━━━━━━━━━❏
 👑 Dev https://t.me/hokagelegend1 👑
 ❏━━━━━━━******************━━━━━━━━❏
