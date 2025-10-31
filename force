@@ -405,7 +405,9 @@ clear
     chown www-data.www-data $domainSock_dir
 
     # Unduh dan pasang Xray versi 1.8.1 langsung (tanpa ambil versi terbaru)
-    latest_version="$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)" bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version $latest_version
+    latest_version="$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases | grep tag_name | sed -E 's/.*"v([^"]+)".*/\1/' | head -n 1)"
+     bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version ${latest_version}
+
 
     # Buat direktori log dan domain
     mkdir -p /var/log/xray /etc/xray
