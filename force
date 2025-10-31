@@ -398,46 +398,50 @@ rm -rf /etc/vmess/.vmess.db
 #Instal Xray
 function install_xray() {
 clear
-    print_install "Core Xray 2.5.1 Latest Version"
-    # install xray
-    #echo -e "[ ${green}INFO$NC ] Downloading & Installing xray core"
-    domainSock_dir="/run/xray";! [ -d $domainSock_dir ] && mkdir  $domainSock_dir
-    chown www-data.www-data $domainSock_dir
+    print_install "Menginstal Xray Core versi 1.8.1 (versi terkunci)"
     
-    # / / Ambil Xray Core Version Terbaru
-latest_version="$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version $latest_version
- 
-    # // Ambil Config Server
+    domainSock_dir="/run/xray"
+    ! [ -d $domainSock_dir ] && mkdir $domainSock_dir
+    chown www-data.www-data $domainSock_dir
+
+    # Unduh dan pasang Xray versi 1.8.1 langsung (tanpa ambil versi terbaru)
+    XRAY_VERSION="v1.8.1"
+    wget -O /tmp/Xray-linux-64.zip "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip"
+    unzip -o /tmp/Xray-linux-64.zip -d /tmp/xray-temp
+    install -m 755 /tmp/xray-temp/xray /usr/local/bin/xray
+    rm -rf /tmp/xray-temp /tmp/Xray-linux-64.zip
+
+    # Buat direktori log dan domain
+    mkdir -p /var/log/xray /etc/xray
+    touch /etc/xray/config.json
+    chmod +x /usr/local/bin/xray
+
+    # Ambil konfigurasi server dari repo
     wget -O /etc/xray/config.json "${REPO}limit/config.json" >/dev/null 2>&1
-    #wget -O /usr/local/bin/xray "${REPO}xray/xray.linux.64bit" >/dev/null 2>&1
     wget -O /etc/systemd/system/runn.service "${REPO}limit/runn.service" >/dev/null 2>&1
-    #chmod +x /usr/local/bin/xray
+
     domain=$(cat /etc/xray/domain)
     IPVS=$(cat /etc/xray/ipvps)
-    print_success "Core Xray 1.8.1 Latest Version"
-    
-    # Settings UP Nginix Server
-    clear
-    curl -s ipinfo.io/city >>/etc/xray/city
-    curl -s ipinfo.io/org | cut -d " " -f 2-10 >>/etc/xray/isp
+
+    print_success "Xray Core versi 1.8.1 berhasil dipasang!"
+
+    # Tambahkan konfigurasi haproxy & nginx
+    curl -s ipinfo.io/city >> /etc/xray/city
+    curl -s ipinfo.io/org | cut -d " " -f 2-10 >> /etc/xray/isp
     print_install "Memasang Konfigurasi Packet"
     wget -O /etc/haproxy/haproxy.cfg "${REPO}limit/haproxy.cfg" >/dev/null 2>&1
     wget -O /etc/nginx/conf.d/xray.conf "${REPO}limit/xray.conf" >/dev/null 2>&1
     sed -i "s/xxx/${domain}/g" /etc/haproxy/haproxy.cfg
     sed -i "s/xxx/${domain}/g" /etc/nginx/conf.d/xray.conf
     curl ${REPO}limit/nginx.conf > /etc/nginx/nginx.conf
-    
-cat /etc/xray/xray.crt /etc/xray/xray.key | tee /etc/haproxy/hap.pem
 
-    # > Set Permission
-    chmod +x /etc/systemd/system/runn.service
+    cat /etc/xray/xray.crt /etc/xray/xray.key | tee /etc/haproxy/hap.pem
 
-    # > Create Service
-    rm -rf /etc/systemd/system/xray.service.d
+    # Buat service systemd
     cat >/etc/systemd/system/xray.service <<EOF
+[Unit]
 Description=Xray Service
-Documentation=https://github.com
+Documentation=https://github.com/XTLS/Xray-core
 After=network.target nss-lookup.target
 
 [Service]
@@ -453,9 +457,11 @@ LimitNOFILE=1000000
 
 [Install]
 WantedBy=multi-user.target
-
 EOF
-print_success "Konfigurasi Packet"
+
+    systemctl daemon-reload
+    systemctl enable xray
+    print_success "Service Xray 1.8.1 siap dijalankan!"
 }
 
 function ssh(){
