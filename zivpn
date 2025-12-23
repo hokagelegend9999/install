@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
-#   ZIVPN AUTO INSTALLER PREMIUM (FINAL FIX)
-#   Command: zivpn
+#   ZIVPN AUTO INSTALLER PREMIUM (FINAL v2)
+#   Fixed: Binary Rename to prevent conflicts
 # ==========================================
 
 # Warna
@@ -13,7 +13,7 @@ NC='\033[0m'
 
 clear
 echo -e "${BLUE}=================================================${NC}"
-echo -e "${YELLOW}       INSTALLER ZIVPN PREMIUM (SAFE MODE)      ${NC}"
+echo -e "${YELLOW}       INSTALLER ZIVPN PREMIUM (FINAL v2)       ${NC}"
 echo -e "${BLUE}=================================================${NC}"
 echo ""
 
@@ -25,25 +25,27 @@ apt-get install -y wget curl jq openssl net-tools bc iptables-persistent > /dev/
 # 2. Stop Service Lama
 systemctl stop zivpn > /dev/null 2>&1
 
-# 3. Download Binary ZIVPN
+# 3. Download Binary ZIVPN (Disimpan sbg zivpn-core)
 echo -e "${GREEN}[2/8] Download Core ZIVPN...${NC}"
-wget -q https://github.com/zahidbd2/udp-zivpn/releases/download/udp-zivpn_1.4.9/udp-zivpn-linux-amd64 -O /usr/local/bin/zivpn
-chmod +x /usr/local/bin/zivpn
+# Hapus binary lama jika ada yang salah nama
+rm -f /usr/local/bin/zivpn 
+wget -q https://github.com/zahidbd2/udp-zivpn/releases/download/udp-zivpn_1.4.9/udp-zivpn-linux-amd64 -O /usr/local/bin/zivpn-core
+chmod +x /usr/local/bin/zivpn-core
 
-# 4. Setup Config & Database (Smart Rebuild)
+# 4. Setup Config & Database
 echo -e "${GREEN}[3/8] Mengkonfigurasi Database...${NC}"
 mkdir -p /etc/zivpn
 
-# Backup config lama jika ada
+# Backup config lama
 if [ -f /etc/zivpn/config.json ]; then
     cp /etc/zivpn/config.json /etc/zivpn/config.json.backup
 fi
 
-# Generate Certificate Baru
+# Generate Certificate
 rm -f /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key
 openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=ID/ST=Jakarta/L=Jakarta/O=ZIVPN/OU=Premium/CN=zivpn" -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" > /dev/null 2>&1
 
-# Buat Config Utama (Format Baru: Auth Mode)
+# Buat Config Utama
 cat <<EOF > /etc/zivpn/config.json
 {
   "listen": ":5667",
@@ -57,12 +59,12 @@ cat <<EOF > /etc/zivpn/config.json
 }
 EOF
 
-# Pastikan User-DB ada
+# User DB
 if [ ! -f /etc/zivpn/user-db.json ]; then
     echo "{}" > /etc/zivpn/user-db.json
 fi
 
-# 5. Auto-Sync User SSH ke ZIVPN
+# 5. Auto-Sync User SSH
 echo -e "${GREEN}[4/8] Sinkronisasi User SSH ke ZIVPN...${NC}"
 SSH_DB="/etc/ssh/.ssh.db"
 CONFIG_FILE="/etc/zivpn/config.json"
@@ -78,11 +80,9 @@ if [ -f "$SSH_DB" ]; then
         if [[ -z "$exp_date" ]]; then exp_date=$(date +%Y-%m-%d); fi
 
         if [[ -n "$user" ]]; then
-            # Masukkan ke Config
             cp "$CONFIG_FILE" "${CONFIG_FILE}.tmp"
             jq --arg u "$user" '.auth.config += [$u]' "${CONFIG_FILE}.tmp" > "$CONFIG_FILE"
             
-            # Masukkan ke DB
             [ -z "$quota" ] && quota=0
             [ -z "$ip" ] && ip=2
             cp "$USER_DB" "${USER_DB}.tmp"
@@ -92,12 +92,12 @@ if [ -f "$SSH_DB" ]; then
     done
 fi
 
-# Tambah default user 'zivpn'
+# Default User
 cp "$CONFIG_FILE" "${CONFIG_FILE}.tmp"
 jq '.auth.config += ["zivpn"]' "${CONFIG_FILE}.tmp" > "$CONFIG_FILE"
 rm -f /etc/zivpn/*.tmp
 
-# 6. Install Menu V3 (Disimpan sebagai zivpn-menu)
+# 6. Install Menu (Disimpan sbg zivpn-menu)
 echo -e "${GREEN}[5/8] Menginstall Menu Manager V3...${NC}"
 cat << 'EOF' > /usr/local/bin/zivpn-menu
 #!/bin/bash
@@ -237,18 +237,21 @@ while true; do
 done
 EOF
 
-# 7. Pembuatan Command 'zivpn' (FIXED)
+# 7. Membuat Shortcut Command (Final)
 echo -e "${GREEN}[6/8] Membuat Shortcut Command...${NC}"
 chmod +x /usr/local/bin/zivpn-menu
 
-# Hapus shortcut 'zivpn' lama jika ada
+# Hapus shortcut/binary lama di /usr/bin/zivpn
 rm -f /usr/bin/zivpn
 
-# Buat shortcut baru: mengetik 'zivpn' akan memanggil 'zivpn-menu'
+# Buat shortcut: ketik 'zivpn' memanggil 'zivpn-menu'
 ln -sf /usr/local/bin/zivpn-menu /usr/bin/zivpn
 chmod +x /usr/bin/zivpn
 
-# 8. Setup Systemd
+# Bersihkan cache lokasi command
+hash -r
+
+# 8. Setup Systemd (Pakai zivpn-core)
 echo -e "${GREEN}[7/8] Membuat Service...${NC}"
 cat <<EOF > /etc/systemd/system/zivpn.service
 [Unit]
@@ -259,7 +262,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/etc/zivpn
-ExecStart=/usr/local/bin/zivpn server -c /etc/zivpn/config.json
+ExecStart=/usr/local/bin/zivpn-core server -c /etc/zivpn/config.json
 Restart=always
 RestartSec=3
 Environment=ZIVPN_LOG_LEVEL=info
