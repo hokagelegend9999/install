@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==========================================
-#  ZIVPN AUTO INSTALLER PREMIUM (FINAL FIX)
-#  Includes: Core, V3 Menu, Auto-Sync
+#   ZIVPN AUTO INSTALLER PREMIUM (FINAL FIX)
+#   Command: zivpn
 # ==========================================
 
 # Warna
@@ -13,12 +13,12 @@ NC='\033[0m'
 
 clear
 echo -e "${BLUE}=================================================${NC}"
-echo -e "${YELLOW}       INSTALLER ZIVPN PREMIUM (FIXED)          ${NC}"
+echo -e "${YELLOW}       INSTALLER ZIVPN PREMIUM (SAFE MODE)      ${NC}"
 echo -e "${BLUE}=================================================${NC}"
 echo ""
 
 # 1. Update & Install Dependencies
-echo -e "${GREEN}[1/7] Update Repository & Install Tools...${NC}"
+echo -e "${GREEN}[1/8] Update Repository & Install Tools...${NC}"
 apt-get update -y > /dev/null 2>&1
 apt-get install -y wget curl jq openssl net-tools bc iptables-persistent > /dev/null 2>&1
 
@@ -26,12 +26,12 @@ apt-get install -y wget curl jq openssl net-tools bc iptables-persistent > /dev/
 systemctl stop zivpn > /dev/null 2>&1
 
 # 3. Download Binary ZIVPN
-echo -e "${GREEN}[2/7] Download Core ZIVPN...${NC}"
+echo -e "${GREEN}[2/8] Download Core ZIVPN...${NC}"
 wget -q https://github.com/zahidbd2/udp-zivpn/releases/download/udp-zivpn_1.4.9/udp-zivpn-linux-amd64 -O /usr/local/bin/zivpn
 chmod +x /usr/local/bin/zivpn
 
 # 4. Setup Config & Database (Smart Rebuild)
-echo -e "${GREEN}[3/7] Mengkonfigurasi Database...${NC}"
+echo -e "${GREEN}[3/8] Mengkonfigurasi Database...${NC}"
 mkdir -p /etc/zivpn
 
 # Backup config lama jika ada
@@ -63,7 +63,7 @@ if [ ! -f /etc/zivpn/user-db.json ]; then
 fi
 
 # 5. Auto-Sync User SSH ke ZIVPN
-echo -e "${GREEN}[4/7] Sinkronisasi User SSH ke ZIVPN...${NC}"
+echo -e "${GREEN}[4/8] Sinkronisasi User SSH ke ZIVPN...${NC}"
 SSH_DB="/etc/ssh/.ssh.db"
 CONFIG_FILE="/etc/zivpn/config.json"
 USER_DB="/etc/zivpn/user-db.json"
@@ -97,8 +97,8 @@ cp "$CONFIG_FILE" "${CONFIG_FILE}.tmp"
 jq '.auth.config += ["zivpn"]' "${CONFIG_FILE}.tmp" > "$CONFIG_FILE"
 rm -f /etc/zivpn/*.tmp
 
-# 6. Install Menu V3 (Fixed Sensor)
-echo -e "${GREEN}[5/7] Menginstall Menu Manager V3...${NC}"
+# 6. Install Menu V3 (Disimpan sebagai zivpn-menu)
+echo -e "${GREEN}[5/8] Menginstall Menu Manager V3...${NC}"
 cat << 'EOF' > /usr/local/bin/zivpn-menu
 #!/bin/bash
 # ZIVPN MENU MANAGER - V3 FIXED
@@ -236,10 +236,20 @@ while true; do
     esac
 done
 EOF
+
+# 7. Pembuatan Command 'zivpn' (FIXED)
+echo -e "${GREEN}[6/8] Membuat Shortcut Command...${NC}"
 chmod +x /usr/local/bin/zivpn-menu
 
-# 7. Setup Systemd
-echo -e "${GREEN}[6/7] Membuat Service...${NC}"
+# Hapus shortcut 'zivpn' lama jika ada
+rm -f /usr/bin/zivpn
+
+# Buat shortcut baru: mengetik 'zivpn' akan memanggil 'zivpn-menu'
+ln -sf /usr/local/bin/zivpn-menu /usr/bin/zivpn
+chmod +x /usr/bin/zivpn
+
+# 8. Setup Systemd
+echo -e "${GREEN}[7/8] Membuat Service...${NC}"
 cat <<EOF > /etc/systemd/system/zivpn.service
 [Unit]
 Description=ZIVPN UDP Server
@@ -261,8 +271,8 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 EOF
 
-# 8. Firewall & Start
-echo -e "${GREEN}[7/7] Setup Firewall & Start...${NC}"
+# 9. Firewall & Start
+echo -e "${GREEN}[8/8] Setup Firewall & Start...${NC}"
 sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1
 echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
 
@@ -276,13 +286,10 @@ systemctl daemon-reload
 systemctl enable zivpn
 systemctl restart zivpn
 
-# Alias
-echo "alias menu='zivpn-menu'" >> /root/.bashrc
-
 clear
 echo -e "${BLUE}=================================================${NC}"
-echo -e "${GREEN}      INSTALASI SELESAI & SINKRONISASI SUKSES    ${NC}"
+echo -e "${GREEN}      INSTALASI SELESAI & COMMAND SIAP           ${NC}"
 echo -e "${BLUE}=================================================${NC}"
-echo -e " - Ketik ${YELLOW}zivpn-menu${NC} untuk akses."
-echo -e " - Semua user SSH lama sudah masuk otomatis."
+echo -e " - Menu SSH Lama Anda : Tetap ketik ${YELLOW}menu${NC}"
+echo -e " - Menu ZiVPN Baru    : Ketik ${YELLOW}zivpn${NC}"
 echo -e "${BLUE}=================================================${NC}"
