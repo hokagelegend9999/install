@@ -248,6 +248,24 @@ wget https://github.com/hokagelegend9999/genom/raw/refs/heads/main/menu/update.s
 ```
 
 
+============================
+
+## INSTALL ZIVPN
+
+```
+cd root
+wget https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/zivpn
+chmod +x zivpn
+./zivpn
+```
+
+## MASUK KE MENU KETIK 
+
+```
+zivpn-menu
+```
+
+
 
 
 # INSTALL LITE SUPER UBUNTU 24 TERBARU
