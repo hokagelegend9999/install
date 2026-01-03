@@ -1,76 +1,101 @@
 #!/bin/bash
-# Simpan sebagai: install-zivpn.sh
-
-# --- ISI LINK DOWNLOAD ZIVPN DI SINI ---
-ZIVPN_URL="https://example.com/link-zivpn-core"
-# ---------------------------------------
+# Script 2: ZiVPN Installer (Source: Zahid Islam)
+# Modified with Auto-Fix for UDP Custom Conflict
 
 clear
-echo "=========================================="
-echo "      INSTALLER ZIVPN (ADD-ON)            "
-echo "      Otomatis Fix UDP Custom             "
-echo "=========================================="
+echo -e "Updating server..."
+# Update ringan saja agar cepat
+apt-get update 
 
-# 1. Input Port ZiVPN
-read -p "Masukkan Port untuk ZiVPN (Default: 5667): " ZIVPN_PORT
-if [[ -z "$ZIVPN_PORT" ]]; then
-    ZIVPN_PORT="5667"
-fi
+systemctl stop zivpn.service 1> /dev/null 2> /dev/null
 
-# 2. Download ZiVPN
-echo -e "\n[+] Mendownload ZiVPN..."
-wget -q -O /usr/bin/zivpn "$ZIVPN_URL"
-chmod +x /usr/bin/zivpn
+echo -e "Downloading ZiVPN Core..."
+# Menggunakan link binary versi 1.4.9 sesuai script asli Anda
+wget https://github.com/zahidbd2/udp-zivpn/releases/download/udp-zivpn_1.4.9/udp-zivpn-linux-amd64 -O /usr/local/bin/zivpn 1> /dev/null 2> /dev/null
+chmod +x /usr/local/bin/zivpn
 
-if [ ! -f "/usr/bin/zivpn" ]; then
-    echo "ERROR: Link Download ZiVPN mati/salah."
-    exit 1
-fi
+mkdir /etc/zivpn 1> /dev/null 2> /dev/null
+wget https://raw.githubusercontent.com/zahidbd2/udp-zivpn/main/config.json -O /etc/zivpn/config.json 1> /dev/null 2> /dev/null
 
-# 3. Buat Service ZiVPN
+echo "Generating cert files..."
+openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=zivpn" -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
+
+sysctl -w net.core.rmem_max=16777216 1> /dev/null 2> /dev/null
+sysctl -w net.core.wmem_max=16777216 1> /dev/null 2> /dev/null
+
+# Membuat Service ZiVPN
 cat <<EOF > /etc/systemd/system/zivpn.service
 [Unit]
-Description=ZiVPN Service
+Description=zivpn VPN Server
 After=network.target
 
 [Service]
-User=root
 Type=simple
-ExecStart=/usr/bin/zivpn $ZIVPN_PORT
+User=root
+WorkingDirectory=/etc/zivpn
+ExecStart=/usr/local/bin/zivpn server -c /etc/zivpn/config.json
 Restart=always
-RestartSec=3s
+RestartSec=3
+Environment=ZIVPN_LOG_LEVEL=info
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable zivpn &>/dev/null
-systemctl start zivpn &>/dev/null
+echo -e "\nZIVPN UDP Passwords"
+read -p "Enter passwords separated by commas (Press enter for Default 'zi'): " input_config
 
-echo -e "[OK] ZiVPN terinstall di port $ZIVPN_PORT"
-
-# 4. --- BAGIAN PENTING: AUTO-FIX UDP CUSTOM ---
-# Cek apakah UDP Custom terinstall
-if [ -f "/etc/systemd/system/udp-custom.service" ]; then
-    echo -e "\n[!] Mendeteksi UDP Custom terinstall..."
-    echo -e "[+] Menambahkan port $ZIVPN_PORT ke whitelist UDP Custom..."
-    
-    # Gunakan SED untuk mencari baris ExecStart dan menggantinya
-    # Ini akan mengganti exclude lama dengan exclude baru + port zivpn
-    sed -i "s/server -exclude .*/server -exclude 22,53,68,$ZIVPN_PORT/g" /etc/systemd/system/udp-custom.service
-    
-    # Restart UDP Custom agar perubahan efek
-    systemctl daemon-reload
-    systemctl restart udp-custom
-    
-    echo -e "[OK] UDP Custom berhasil diupdate agar tidak bentrok."
+if [ -n "$input_config" ]; then
+    IFS=',' read -r -a config <<< "$input_config"
+    if [ ${#config[@]} -eq 1 ]; then
+        config+=(${config[0]})
+    fi
 else
-    echo -e "\n[info] UDP Custom tidak ditemukan, melewati auto-fix."
+    config=("zi")
 fi
 
-echo -e "\n=========================================="
-echo -e " Instalasi Selesai"
-echo -e " ZiVPN Port : $ZIVPN_PORT"
-echo -e " Status     : Aman berjalan bersama UDP Custom"
-echo -e "=========================================="
+new_config_str="\"config\": [$(printf "\"%s\"," "${config[@]}" | sed 's/,$//')]"
+sed -i -E "s/\"config\": ?\[[[:space:]]*\"zi\"[[:space:]]*\]/${new_config_str}/g" /etc/zivpn/config.json
+
+systemctl daemon-reload
+systemctl enable zivpn.service
+systemctl start zivpn.service
+
+# Firewall Rules (Sesuai Script Asli: Port 5667)
+# Mengarahkan range port 6000-19999 ke port 5667
+iptables -t nat -A PREROUTING -i $(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1) -p udp --dport 6000:19999 -j DNAT --to-destination :5667
+ufw allow 6000:19999/udp
+ufw allow 5667/udp
+
+rm zi.* 1> /dev/null 2> /dev/null
+echo -e "ZIVPN UDP Installed."
+
+# ==========================================================
+# BAGIAN AUTO-FIX UDP CUSTOM (ANTI BENTROK)
+# ==========================================================
+echo -e "\n[!] Mengecek instalasi UDP Custom..."
+
+if [ -f "/etc/systemd/system/udp-custom.service" ]; then
+    echo -e "[+] UDP Custom Ditemukan!"
+    echo -e "[+] Menambahkan Port ZiVPN (5667) ke Exclude List UDP Custom..."
+    
+    # Perintah sakti untuk update exclude list:
+    # Menambahkan 5667 ke daftar exclude yang sudah ada
+    sed -i 's/server -exclude /server -exclude 5667,/g' /etc/systemd/system/udp-custom.service
+    # Note: Teknik sed di atas menambahkan 5667 di depan list exclude
+    
+    systemctl daemon-reload
+    systemctl restart udp-custom
+    echo -e "[SUCCESS] UDP Custom telah di-update agar tidak menabrak ZiVPN."
+else
+    echo -e "[INFO] UDP Custom tidak terinstall. ZiVPN berjalan normal."
+fi
+
+echo -e "\n========================================"
+echo -e " INSTALLASI SELESAI"
+echo -e " ZiVPN Port Internal : 5667"
+echo -e " UDP Custom Exclude  : Updated Auto"
+echo -e "========================================"
