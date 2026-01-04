@@ -1,103 +1,39 @@
 #!/bin/bash
-# Script Installer ZiVPN + Menu Manager
-# Modified by Assistant to include Menu & Auto-Fix
+# ZIVPN MENU INSTALLER
+# Compatible with: Original Zahid Islam Script
 
-# --- KONFIGURASI LINK DOWNLOAD ---
-# Ganti dengan link binary ZiVPN Anda
-ZIVPN_URL="https://github.com/zahidbd2/udp-zivpn/releases/download/udp-zivpn_1.4.9/udp-zivpn-linux-amd64" 
-# ---------------------------------
-
-clear
-echo "=========================================="
-echo "      INSTALLER ZIVPN + MENU PRO          "
-echo "=========================================="
-
-# 1. Update & Install Dependencies (Wajib untuk Menu)
-echo -e "\n[+] Menginstall Dependencies (jq, curl)..."
+# 1. Install Dependencies (Wajib untuk Menu)
+echo "Menginstall kebutuhan menu (jq)..."
 apt-get update -y
-apt-get install -y jq curl
+apt-get install -y jq curl net-tools
 
-# 2. Input Port ZiVPN
-read -p "Masukkan Port untuk ZiVPN (Default: 5667): " ZIVPN_PORT
-if [[ -z "$ZIVPN_PORT" ]]; then ZIVPN_PORT="5667"; fi
-
-# 3. Download & Install Core ZiVPN
-echo -e "\n[+] Mendownload Core ZiVPN..."
-systemctl stop zivpn.service 1> /dev/null 2> /dev/null
-wget -q -O /usr/bin/zivpn "$ZIVPN_URL"
-chmod +x /usr/bin/zivpn
-mkdir -p /etc/zivpn
-
-# Download Config Default jika belum ada
-if [ ! -f "/etc/zivpn/config.json" ]; then
-    wget -q -O /etc/zivpn/config.json "https://raw.githubusercontent.com/zahidbd2/udp-zivpn/main/config.json"
-fi
-
-# Buat User Database Kosong (Agar Menu tidak Error saat pertama kali)
+# 2. Buat Database Expired (Karena script asli tidak punya)
 if [ ! -f "/etc/zivpn/user-db.json" ]; then
     echo "{}" > /etc/zivpn/user-db.json
 fi
 
-# Generate Certificate Dummy
-openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=ID/ST=Jakarta/L=Jakarta/O=VPN/OU=IT/CN=zivpn" -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
-
-# 4. Buat Service Systemd
-cat <<EOF > /etc/systemd/system/zivpn.service
-[Unit]
-Description=ZiVPN Service
-After=network.target
-
-[Service]
-User=root
-Type=simple
-ExecStart=/usr/bin/zivpn server -c /etc/zivpn/config.json
-Restart=always
-RestartSec=3s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Update Port di Config JSON (Manual Regex untuk memastikan port sesuai input)
-# Note: ZiVPN biasanya listen sesuai argumen atau config. 
-# Kita pastikan config.json valid, tapi service biasanya butuh port via command line atau config yang tepat.
-# Disini kita asumsikan config default zahid sudah oke, kita handle port via iptables/redirect jika perlu,
-# TAPI script menu Anda hanya mengatur user.
-
-# Start Service
-systemctl daemon-reload
-systemctl enable zivpn &>/dev/null
-systemctl start zivpn &>/dev/null
-
-# 5. Pasang Menu (zivpn-menu)
-echo -e "\n[+] Memasang Menu ZiVPN..."
-
+# 3. Download/Buat Script Menu
 cat <<'EOF' > /usr/local/sbin/zivpn-menu
 #!/bin/bash
 # ==========================================
-#  ZIVPN MENU MANAGER V6 (FULL SYNC)
-#  Update: Sync System Users (passwd) to ZiVPN
-#  Fix: Auto Update Expired Date if Mismatch
+#  ZIVPN MENU MANAGER V6 (ORIGINAL VERSION)
 # ==========================================
 
-# Konfigurasi File
+# Konfigurasi File (Sesuai Installer Asli)
 CONFIG_FILE="/etc/zivpn/config.json"
 USER_DB="/etc/zivpn/user-db.json"
-SSH_DB="/etc/ssh/.ssh.db"
 SERVICE_NAME="zivpn.service"
 
-# Palet Warna (ANSI Fixed)
+# Warna
 RED='\e[1;31m'
 GREEN='\e[1;32m'
 YELLOW='\e[1;33m'
 BLUE='\e[1;34m'
 PURPLE='\e[1;35m'
 CYAN='\e[1;36m'
-NC='\e[0m'        # No Color
-WH='\e[1;37m'     # Bold White
-BOLD='\e[1m'
+NC='\e[0m'
+WH='\e[1;37m'
 
-# Helper Functions
 function restart_service() { 
     systemctl restart "$SERVICE_NAME"
 }
@@ -105,316 +41,188 @@ function restart_service() {
 function header() {
     clear
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${WH}            ⚡ ZIVPN PREMIUM MANAGER ⚡            ${NC}"
+    echo -e "${WH}      ⚡ ZIVPN PREMIUM MANAGER (ORIGINAL) ⚡      ${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 }
 
 function show_main_menu() {
     header
-    # System Info
-    if [ -f /etc/os-release ]; then 
-        OS_NAME=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-    else 
-        OS_NAME="Linux"
-    fi
-    
+    # Ambil Port Langsung dari Config Asli
+    PORT=$(grep -o '"listen": *"[^"]*"' $CONFIG_FILE | cut -d'"' -f4 | sed 's/://g' | sed 's/0.0.0.0//g')
+    [ -z "$PORT" ] && PORT="5667" # Fallback
+
     IP_VPS=$(curl -s --connect-timeout 2 ipv4.icanhazip.com)
-    RAM_USED=$(free -m | awk '/Mem:/ {print $3}')
-    RAM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
-    
-    # Cek Status Service
     if systemctl is-active --quiet "$SERVICE_NAME"; then 
-        STATUS_SRV="${GREEN}RUNNING [ON]${NC}"
+        STATUS_SRV="${GREEN}RUNNING${NC}"
     else 
-        STATUS_SRV="${RED}STOPPED [OFF]${NC}"
+        STATUS_SRV="${RED}STOPPED${NC}"
     fi
 
-    echo -e " ${PURPLE}» OS System   :${WH} $OS_NAME"
     echo -e " ${PURPLE}» IP Server   :${WH} $IP_VPS"
-    echo -e " ${PURPLE}» RAM Usage   :${WH} $RAM_USED / $RAM_TOTAL MB"
-    echo -e " ${PURPLE}» Status VPN  :${WH} $STATUS_SRV"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e " ${BOLD}MENU UTAMA:${NC}"
+    echo -e " ${PURPLE}» Port UDP    :${WH} $PORT"
+    echo -e " ${PURPLE}» Status      :${WH} $STATUS_SRV"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "  ${GREEN}[1]${NC} • Buat User Baru"
-    echo -e "  ${GREEN}[2]${NC} • List User & Monitor"
-    echo -e "  ${GREEN}[3]${NC} • Perpanjang User"
-    echo -e "  ${GREEN}[4]${NC} • Hapus User"
-    echo -e "  ${GREEN}[5]${NC} • Cek Service Log"
-    echo -e "  ${GREEN}[6]${NC} • Auto Hapus Expired"
-    echo -e "  ${GREEN}[7]${NC} • ${YELLOW}Sync Total (SSH -> ZiVPN)${NC} (FIX)"
+    echo -e "  ${GREEN}[2]${NC} • List User"
+    echo -e "  ${GREEN}[3]${NC} • Hapus User"
+    echo -e "  ${GREEN}[4]${NC} • Perpanjang User"
+    echo -e "  ${GREEN}[5]${NC} • Cek Log Service"
+    echo -e "  ${GREEN}[6]${NC} • Sync User SSH (System -> ZiVPN)"
+    echo -e "  ${GREEN}[7]${NC} • Fix UDP Custom (Exclude Port)"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "  ${RED}[0]${NC} • Exit / Keluar"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -ne " ${YELLOW}⇨  Pilih Menu [0-7]: ${NC}"
+    echo -e "  ${RED}[0]${NC} • Keluar"
+    echo -ne " ${YELLOW}⇨  Pilih Menu: ${NC}"
 }
 
 function add_user() {
     header
     echo -e " ${CYAN}CREATE NEW USER${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     read -p " » Username : " username
-    if [[ -z "$username" ]]; then echo -e "\n${RED}❌ Input tidak boleh kosong!${NC}"; sleep 1; return; fi
+    if [[ -z "$username" ]]; then return; fi
     
-    # Cek Duplikat
+    # Cek Duplikat di Config Asli
     if jq -e ".auth.config | index(\"$username\")" "$CONFIG_FILE" > /dev/null; then 
         echo -e "\n${RED}❌ Username '$username' sudah ada!${NC}"; sleep 2; return; 
     fi
     
-    read -p " » Password : " password 
     read -p " » Expired (hari) : " masa_aktif
     [ -z "$masa_aktif" ] && masa_aktif=30
-    
     exp_date=$(date -d "+$masa_aktif days" +%Y-%m-%d)
     
-    # Update Config.json
-    cp "$CONFIG_FILE" "${CONFIG_FILE}.bak"
-    if ! jq -e '.auth.config' "$CONFIG_FILE" >/dev/null; then
-        jq '.auth += {"config": []}' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-    fi
-
+    # Update Config Asli (Tambah Username ke Array)
     jq --arg user "$username" '.auth.config += [$user]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
     
-    # Update User-DB
-    jq --arg u "$username" --arg e "$exp_date" --arg i "2" --arg q "0" \
-        '.[$u] = {exp: $e, ip: $i, quota: $q}' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
+    # Update Database Expired
+    jq --arg u "$username" --arg e "$exp_date" '.[$u] = {exp: $e}' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
     
     restart_service
-    
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e " ✅ ${GREEN}User Berhasil Dibuat!${NC}"
-    echo -e " 👤 User : ${WH}$username${NC}"
-    echo -e " 📅 Exp  : ${WH}$exp_date${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    read -n 1 -s -r -p "Tekan Enter untuk kembali..."
+    echo -e "\n✅ User ${GREEN}$username${NC} berhasil dibuat!"
+    echo -e "📅 Expired: $exp_date"
+    read -n 1 -s -r -p "Tekan Enter..."
 }
 
 function list_users() {
     header
-    echo -e " ${CYAN}LIST USER ZIVPN${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    printf "${YELLOW}%-4s %-15s %-12s %-10s %s${NC}\n" "No" "Username" "Expired" "Status" "Quota"
-    echo -e "${BLUE}--------------------------------------------------${NC}"
+    printf "${YELLOW}%-4s %-15s %-12s %s${NC}\n" "No" "Username" "Expired" "Status"
+    echo -e "${BLUE}---------------------------------------------${NC}"
     
-    if [ ! -f "$CONFIG_FILE" ]; then echo "Config file not found."; read -n 1; return; fi
+    no=1
+    # Loop Array dari Config Asli
+    jq -r '.auth.config[]' "$CONFIG_FILE" | while read -r user; do
+        if [[ -z "$user" || "$user" == "null" ]]; then continue; fi
+        
+        # Ambil Expired dari DB Tambahan
+        exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
+        
+        status="${GREEN}ACTIVE${NC}"
+        if [[ "$exp" != "Unknown" ]]; then
+            if [[ $(date +%Y-%m-%d) > "$exp" ]]; then status="${RED}EXPIRED${NC}"; fi
+        fi
 
-    count_user=$(jq '.auth.config | length' "$CONFIG_FILE")
-    if [[ "$count_user" == "0" || "$count_user" == "null" ]]; then
-         echo -e " ${RED}Data user kosong.${NC}"
-    else
-        no=1
-        jq -r '.auth.config[]' "$CONFIG_FILE" | while read -r user; do
-            if [[ -z "$user" || "$user" == "null" ]]; then continue; fi
-            
-            exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
-            quota=$(jq -r --arg u "$user" '.[$u].quota // "Unl"' "$USER_DB")
-            
-            status_show="${GREEN}ACTIVE${NC}"
-            if [[ "$exp" != "Unknown" ]]; then
-                today=$(date +%Y-%m-%d)
-                if [[ "$today" > "$exp" ]]; then 
-                    status_show="${RED}EXPIRED${NC}"
-                fi
-            fi
-            
-            if [[ "$quota" == "0" || "$quota" == "Unl" ]]; then 
-                quota_show="Unl"
-            else 
-                quota_show="${quota}GB"
-            fi
-
-            printf "%-4s %-15s %-12s %b %s\n" "$no" "$user" "$exp" "$status_show" "$quota_show"
-            ((no++))
-        done
-    fi
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    read -n 1 -s -r -p "Tekan Enter untuk kembali..."
-}
-
-function renew_user() {
-    header
-    echo -e " ${CYAN}RENEW USER${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    read -p " » Username : " username
-    
-    if ! jq -e ".auth.config | index(\"$username\")" "$CONFIG_FILE" > /dev/null; then 
-        echo -e "\n${RED}❌ User tidak ditemukan!${NC}"; sleep 1; return; 
-    fi
-    
-    read -p " » Tambah Hari : " days
-    curr_exp=$(jq -r --arg u "$username" '.[$u].exp' "$USER_DB")
-    
-    if [[ "$curr_exp" == "null" || -z "$curr_exp" ]]; then curr_exp=$(date +%Y-%m-%d); fi
-    
-    new_exp=$(date -d "$curr_exp + $days days" +%Y-%m-%d)
-    
-    jq --arg u "$username" --arg e "$new_exp" '.[$u].exp = $e' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
-    
-    echo -e "\n ✅ ${GREEN}Berhasil Diperpanjang!${NC}"
-    echo -e " 📅 Exp Baru: ${WH}$new_exp${NC}"
-    read -n 1 -s -r -p "Tekan Enter untuk kembali..."
+        printf "%-4s %-15s %-12s %b\n" "$no" "$user" "$exp" "$status"
+        ((no++))
+    done
+    read -n 1 -s -r -p "Tekan Enter..."
 }
 
 function del_user() {
     header
-    echo -e " ${CYAN}DELETE USER${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    read -p " » Username : " username
+    read -p " » Username yang dihapus : " username
     
     if jq -e ".auth.config | index(\"$username\")" "$CONFIG_FILE" > /dev/null; then
+        # Hapus dari Config Asli
         jq --arg user "$username" '.auth.config -= [$user]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+        # Hapus dari DB Expired
         jq --arg user "$username" 'del(.[$user])' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
         
         restart_service
-        echo -e "\n ✅ ${GREEN}User $username telah dihapus.${NC}"
+        echo -e "\n✅ User $username dihapus."
     else 
-        echo -e "\n ${RED}❌ User tidak ditemukan.${NC}"
+        echo -e "\n❌ User tidak ditemukan."
     fi
-    read -n 1 -s -r -p "Tekan Enter untuk kembali..."
+    read -n 1 -s -r -p "Tekan Enter..."
 }
 
-function delete_expired() {
+function renew_user() {
     header
-    echo -e " ${CYAN}AUTO DELETE EXPIRED${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo " Memeriksa user expired..."
-    
-    today=$(date +%Y-%m-%d)
-    users=$(jq -r 'keys[]' "$USER_DB")
-    count=0
-    
-    for user in $users; do
-        exp=$(jq -r --arg u "$user" '.[$u].exp' "$USER_DB")
-        if [[ "$today" > "$exp" ]]; then
-            echo -e " - Menghapus: ${RED}$user${NC} (Exp: $exp)"
-            jq --arg u "$user" '.auth.config -= [$u]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-            jq --arg u "$user" 'del(.[$u])' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
-            ((count++))
-        fi
-    done
-    
-    if [ $count -gt 0 ]; then
-        restart_service
-        echo -e "\n ${GREEN}✅ Berhasil menghapus $count user expired.${NC}"
-    else
-        echo -e "\n ${GREEN}✅ Tidak ada user expired.${NC}"
+    read -p " » Username : " username
+    if ! jq -e ".auth.config | index(\"$username\")" "$CONFIG_FILE" > /dev/null; then 
+        echo -e "\n❌ User tidak ditemukan!"; sleep 1; return; 
     fi
-    read -n 1 -s -r -p "Tekan Enter untuk kembali..."
+    
+    read -p " » Tambah Hari : " days
+    curr_exp=$(jq -r --arg u "$username" '.[$u].exp' "$USER_DB")
+    if [[ "$curr_exp" == "null" || -z "$curr_exp" || "$curr_exp" == "Unknown" ]]; then curr_exp=$(date +%Y-%m-%d); fi
+    new_exp=$(date -d "$curr_exp + $days days" +%Y-%m-%d)
+    
+    jq --arg u "$username" --arg e "$new_exp" '.[$u].exp = $e' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
+    echo -e "\n✅ Diperpanjang sampai: $new_exp"
+    read -n 1 -s -r -p "Tekan Enter..."
 }
 
 function sync_ssh() {
     header
-    echo -e " ${CYAN}SYNC SYSTEM/SSH USERS TO ZIVPN${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e " Scanning Linux System Users (UID >= 1000)..."
-    echo -e " Source of Truth: /etc/passwd & chage"
-    echo -e "${BLUE}--------------------------------------------------${NC}"
-    
-    count_new=0
-    count_updated=0
-    
-    # Loop langsung ke /etc/passwd untuk menangkap semua user (termasuk manual)
+    echo -e " Syncing Linux Users to ZiVPN..."
+    count=0
     while IFS=: read -r username _ uid _ _ _ _; do
-        # Hanya user dengan UID >= 1000 dan bukan nobody
-        if [[ $uid -ge 1000 && "$username" != "nobody" && "$username" != "root" ]]; then
-            
-            # 1. Ambil Expired Date REAL dari System
+        if [[ $uid -ge 1000 && "$username" != "nobody" ]]; then
+            # Cek Expired System
             raw_exp=$(chage -l "$username" | grep "Account expires" | cut -d: -f2)
-            if [[ "$raw_exp" == *"never"* || -z "$raw_exp" ]]; then
-               exp_date="2099-12-31" # Unlimited
-            else
-               # Convert date format to YYYY-MM-DD
-               exp_date=$(date -d "$raw_exp" +%Y-%m-%d 2>/dev/null)
-               if [ -z "$exp_date" ]; then exp_date="2099-12-31"; fi
-            fi
+            if [[ "$raw_exp" == *"never"* || -z "$raw_exp" ]]; then exp="2099-12-31"; else exp=$(date -d "$raw_exp" +%Y-%m-%d 2>/dev/null); fi
+            [ -z "$exp" ] && exp="2099-12-31"
 
-            # 2. Cek apakah user ada di ZiVPN
-            if jq -e ".auth.config | index(\"$username\")" "$CONFIG_FILE" > /dev/null; then
-                # User ADA. Cek apakah tanggalnya sama?
-                zivpn_exp=$(jq -r --arg u "$username" '.[$u].exp // "Unknown"' "$USER_DB")
-                
-                if [[ "$zivpn_exp" != "$exp_date" ]]; then
-                    echo -e " ~ Update: ${CYAN}$username${NC} (Exp: $zivpn_exp -> $exp_date)"
-                    jq --arg u "$username" --arg e "$exp_date" '.[$u].exp = $e' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
-                    ((count_updated++))
-                fi
-            else
-                # User TIDAK ADA. Tambahkan!
-                echo -e " + New: ${GREEN}$username${NC} (Exp: $exp_date)"
-                
-                # Masukkan ke Config ZiVPN (Config Pass = Username karena tidak tau password asli)
+            # Jika belum ada di ZiVPN, tambahkan
+            if ! jq -e ".auth.config | index(\"$username\")" "$CONFIG_FILE" > /dev/null; then
+                echo -e " + Adding: $username"
                 jq --arg user "$username" '.auth.config += [$user]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-                
-                # Masukkan ke User DB ZiVPN
-                jq --arg u "$username" --arg e "$exp_date" --arg i "2" --arg q "0" \
-                    '.[$u] = {exp: $e, ip: $i, quota: $q}' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
-                
-                ((count_new++))
+                jq --arg u "$username" --arg e "$exp" '.[$u] = {exp: $e}' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
+                ((count++))
             fi
         fi
     done < /etc/passwd
     
-    if [[ $count_new -gt 0 || $count_updated -gt 0 ]]; then
-        echo -e "${BLUE}--------------------------------------------------${NC}"
-        echo -e "[+] Merestart Service ZiVPN..."
-        restart_service
-        echo -e "\n${GREEN}✅ Sync Selesai!${NC}"
-        echo -e "   User Baru Ditambah : $count_new"
-        echo -e "   User Diupdate Tgl  : $count_updated"
-    else
-        echo -e "\n${YELLOW}✅ Semua User SSH sudah Sinkron dengan ZiVPN.${NC}"
-    fi
-    
-    read -n 1 -s -r -p "Tekan Enter untuk kembali..."
+    if [ $count -gt 0 ]; then restart_service; echo -e "\n✅ $count user disinkronkan."; else echo -e "\n✅ Tidak ada user baru."; fi
+    read -n 1 -s -r -p "Tekan Enter..."
 }
 
-# --- MAIN LOOP ---
+function fix_udp_custom() {
+    header
+    PORT=$(grep -o '"listen": *"[^"]*"' $CONFIG_FILE | cut -d'"' -f4 | sed 's/://g' | sed 's/0.0.0.0//g')
+    [ -z "$PORT" ] && PORT="5667"
+    
+    echo " Mengecek UDP Custom..."
+    if [ -f "/etc/systemd/system/udp-custom.service" ]; then
+        echo " Menambahkan exclude port $PORT..."
+        sed -i "s|server -exclude .*|server -exclude 22,53,68,$PORT|g" /etc/systemd/system/udp-custom.service
+        systemctl daemon-reload
+        systemctl restart udp-custom
+        echo " ✅ Selesai. UDP Custom tidak akan menabrak ZiVPN."
+    else
+        echo " ℹ️ UDP Custom tidak terinstall. Aman."
+    fi
+    read -n 1 -s -r -p "Tekan Enter..."
+}
+
+# --- LOOP ---
 while true; do
     show_main_menu
     read -r choice
     case $choice in
         1) add_user ;;
         2) list_users ;;
-        3) renew_user ;;
-        4) del_user ;;
+        3) del_user ;;
+        4) renew_user ;;
         5) clear; journalctl -u "$SERVICE_NAME" -f -n 20 ;;
-        6) delete_expired ;;
-        7) sync_ssh ;;
-        0) clear; exit 0 ;;
-        *) echo -e "\n ${RED}Pilihan salah!${NC}"; sleep 1 ;;
+        6) sync_ssh ;;
+        7) fix_udp_custom ;;
+        0) exit 0 ;;
+        *) echo -e "\n Pilihan salah!"; sleep 1 ;;
     esac
 done
 EOF
 
+# 4. Finishing
 chmod +x /usr/local/sbin/zivpn-menu
-echo -e "[OK] Menu terinstall. Ketik 'zivpn-menu' untuk menggunakan."
-
-
-# 6. AUTO-FIX UDP CUSTOM (Agar tidak bentrok)
-echo -e "\n[!] Mengecek instalasi UDP Custom..."
-if [ -f "/etc/systemd/system/udp-custom.service" ]; then
-    echo -e "[+] Menambahkan Port ZiVPN ($ZIVPN_PORT) ke Exclude List UDP Custom..."
-    
-    # Teknik replace sed yang aman: Menambahkan port ke daftar exclude
-    # Menghapus port lama (jika ada) lalu menambahkan lagi biar tidak duplikat
-    # Namun cara paling simpel & aman: taruh di depan.
-    sed -i "s/server -exclude /server -exclude $ZIVPN_PORT,/g" /etc/systemd/system/udp-custom.service
-    
-    systemctl daemon-reload
-    systemctl restart udp-custom
-    echo -e "[SUCCESS] UDP Custom telah di-update agar tidak menabrak ZiVPN."
-else
-    echo -e "[INFO] UDP Custom tidak terinstall. ZiVPN berjalan normal."
-fi
-
-# 7. Finishing Firewall
-# Redirect Port jika perlu (Contoh 6000-19000 -> ZiVPN Port)
-iptables -t nat -A PREROUTING -i $(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1) -p udp --dport 6000:19999 -j DNAT --to-destination :$ZIVPN_PORT
-ufw allow 6000:19999/udp
-ufw allow $ZIVPN_PORT/udp
-
-echo -e "\n========================================"
-echo -e "   INSTALLASI ZIVPN SELESAI"
-echo -e "   Port        : $ZIVPN_PORT"
-echo -e "   Menu Command: zivpn-menu"
-echo -e "========================================"
+echo -e "\n[OK] Menu terinstall!"
+echo -e "Ketik perintah ini untuk membuka menu:"
+echo -e ">>> zivpn-menu"
