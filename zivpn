@@ -140,6 +140,13 @@ function add_user() {
     read -p " » Username : " username
     [ -z "$username" ] && return
     
+    # Cek apakah user sudah ada
+    if grep -q "$username" "$CONFIG_FILE"; then
+        echo -e "${RED}Error: Username sudah ada!${NC}"
+        sleep 2
+        return
+    fi
+    
     read -p " » Password : " password
     [ -z "$password" ] && password="$username" 
     
@@ -165,10 +172,10 @@ function add_user() {
     
     restart_service
     
-    # --- OUTPUT KEREN ---
+    # --- OUTPUT REQUESTED FORMAT ---
     clear
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "🔵  ZIVPN PREMIUM ACCOUNT   🔵"
+    echo -e "🔵  HOKAGE LEGEND ZIVPN PREMIUM ACCOUNT   🔵"
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
     echo -e "➤ Domain    : $domain"
     echo -e "➤ IP        : $IP"
@@ -180,9 +187,9 @@ function add_user() {
     echo -e "➤ Port UDP  : $PORT"
     echo -e "➤ UDP Custom: 1-65535 (All Port)"
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "CARA PAKAI     : "
-    echo -e "UDP SERVER   Isi Dengan      : $domain"
-    echo -e "UDP PASSWORD Isi dengan      : $username"
+    echo -e "============ CARA PAKAI =================== "
+    echo -e "UDP SERVER   Isi Dengan       : $domain"
+    echo -e "UDP PASSWORD Isi dengan       : $username"
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
     echo -e "    \033[5m\033[35mTHANKS YOU FOR \033[34mUSING SCRIPT \033[31mHOKAGE LEGEND\033[0m"
     echo -e ""
@@ -194,13 +201,81 @@ function list_users() {
     printf "${YELLOW}%-4s %-15s %-12s %s${NC}\n" "No" "Username" "Expired" "Quota"
     echo -e "${BLUE}---------------------------------------------${NC}"
     no=1
-    jq -r '.auth.config[]' "$CONFIG_FILE" | while read -r user; do
+    # Membaca array user dari config
+    users=($(jq -r '.auth.config[]' "$CONFIG_FILE"))
+    for user in "${users[@]}"; do
         exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
         quota=$(jq -r --arg u "$user" '.[$u].quota // "Unlimited"' "$USER_DB")
         printf "%-4s %-15s %-12s %s\n" "$no" "$user" "$exp" "$quota"
         ((no++))
     done
     read -n 1 -s -r -p "Tekan Enter..."
+}
+
+function delete_user() {
+    header
+    echo -e "${YELLOW}DAFTAR USER ZIVPN:${NC}"
+    echo -e "${BLUE}---------------------------------------------${NC}"
+    
+    # Ambil list user ke dalam array
+    users=($(jq -r '.auth.config[]' "$CONFIG_FILE"))
+    
+    # Cek jika kosong
+    if [ ${#users[@]} -eq 0 ]; then
+        echo -e "${RED}Tidak ada user yang terdaftar.${NC}"
+        sleep 2
+        return
+    fi
+
+    # Tampilkan list dengan nomor
+    no=1
+    for user in "${users[@]}"; do
+        exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
+        echo -e " ${GREEN}[$no]${NC} $user ${YELLOW}($exp)${NC}"
+        ((no++))
+    done
+    echo -e "${BLUE}---------------------------------------------${NC}"
+    echo -e "${YELLOW}[0] Batal / Kembali${NC}"
+    echo ""
+    read -p "Pilih Nomor atau Ketik Username untuk dihapus : " input
+
+    # Jika pilih 0
+    if [[ "$input" == "0" ]]; then return; fi
+
+    target_user=""
+
+    # Logika deteksi Nomor vs Username
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        # Jika input angka, ambil dari array (index - 1)
+        index=$((input - 1))
+        if [[ $index -ge 0 && $index -lt ${#users[@]} ]]; then
+            target_user="${users[$index]}"
+        fi
+    else
+        # Jika input string/nama, cek apakah ada di array
+        for u in "${users[@]}"; do
+            if [[ "$u" == "$input" ]]; then
+                target_user="$u"
+                break
+            fi
+        done
+    fi
+
+    # Proses Penghapusan
+    if [[ -n "$target_user" ]]; then
+        echo -e "\nMenghapus user: ${RED}$target_user${NC}..."
+        
+        # Hapus dari Config
+        jq --arg u "$target_user" '.auth.config -= [$u]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+        # Hapus dari DB
+        jq --arg u "$target_user" 'del(.[$u])' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
+        
+        restart_service
+        echo -e "✅ User berhasil dihapus."
+    else
+        echo -e "${RED}User tidak ditemukan atau pilihan salah!${NC}"
+    fi
+    sleep 2
 }
 
 function show_main_menu() {
@@ -216,7 +291,7 @@ function show_main_menu() {
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "  ${GREEN}[1]${NC} • Buat User Baru"
     echo -e "  ${GREEN}[2]${NC} • List User"
-    echo -e "  ${GREEN}[3]${NC} • Hapus User"
+    echo -e "  ${GREEN}[3]${NC} • Hapus User (Pilih Nomor/Nama)"
     echo -e "  ${GREEN}[4] • Cek Log Service"
     echo -e "  ${GREEN}[5] • Sync User SSH (System -> ZiVPN)"
     echo -e "  ${GREEN}[6] • Fix UDP Custom (Exclude Port)"
@@ -258,7 +333,8 @@ while true; do
     case $choice in
         1) add_user ;; 
         2) list_users ;; 
-        3) header; read -p "User: " u; jq --arg u "$u" '.auth.config -= [$u]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"; restart_service ;;
+        3) delete_user ;;
+        4) journalctl -u zivpn -n 20 --no-pager; read -p "Enter..." ;;
         5) sync_ssh ;; 
         6) fix_udp ;; 
         7) /usr/local/sbin/xp-zivpn; echo "Selesai."; sleep 2 ;;
