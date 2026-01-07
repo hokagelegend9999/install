@@ -1,6 +1,7 @@
 #!/bin/bash
 # ==========================================
 #  ZIVPN ULTIMATE INSTALLER (HOKAGE LEGEND)
+#  Updated: Skip Limit-Quota File Creation
 # ==========================================
 
 # --- WARNA ---
@@ -12,13 +13,13 @@ NC='\033[0m'
 
 clear
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "      ZIVPN AUTO-INSTALLER WITH SMART CLEANUP     "
+echo -e "      ZIVPN AUTO-INSTALLER WITH SMART MONITOR     "
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # ==========================================
 #  1. PRE-INSTALL: CEK & HAPUS VERSI LAMA
 # ==========================================
-echo -e "\n${YELLOW}[1/6] Memeriksa Instalasi Sebelumnya...${NC}"
+echo -e "\n${YELLOW}[1/7] Memeriksa Instalasi Sebelumnya...${NC}"
 
 if [[ -f /etc/systemd/system/zivpn.service ]] || [[ -d /etc/zivpn ]]; then
     echo -e "   ⚠️  Terdeteksi instalasi ZiVPN lama. Membersihkan..."
@@ -31,18 +32,20 @@ if [[ -f /etc/systemd/system/zivpn.service ]] || [[ -d /etc/zivpn ]]; then
     rm -f /etc/systemd/system/zivpn.service
     rm -rf /etc/zivpn
     
-    # Hapus Script Menu Lama
+    # Hapus Script Menu & Tools Lama (KECUALI limit-quota)
     rm -f /usr/local/sbin/zivpn-menu
     rm -f /usr/local/sbin/xp-zivpn
+    # rm -f /usr/local/sbin/limit-quota  <-- BARIS INI DIHAPUS AGAR FILE AMAN
     
-    # Bersihkan Cronjob Lama (Hanya baris xp-zivpn)
+    # Bersihkan Cronjob Lama
     if [ -f /var/spool/cron/crontabs/root ]; then
         sed -i '/xp-zivpn/d' /var/spool/cron/crontabs/root
+        sed -i '/limit-quota/d' /var/spool/cron/crontabs/root
     fi
     
     # Reload Systemd
     systemctl daemon-reload
-    echo -e "   ✅ Instalasi lama berhasil dihapus."
+    echo -e "   ✅ Instalasi lama dibersihkan (Limit Quota dipertahankan)."
 else
     echo -e "   ✅ Tidak ada instalasi sebelumnya. Lanjut..."
 fi
@@ -50,15 +53,16 @@ fi
 # ==========================================
 #  2. INSTALL CORE ZIVPN
 # ==========================================
-echo -e "\n${GREEN}[2/6] Mengunduh & Menginstall Core ZiVPN...${NC}"
+echo -e "\n${GREEN}[2/7] Mengunduh & Menginstall Core ZiVPN...${NC}"
 wget -q -O zi.sh https://raw.githubusercontent.com/zahidbd2/udp-zivpn/main/zi.sh
 chmod +x zi.sh
 ./zi.sh >/dev/null 2>&1
+rm -f zi.sh
 
 # ==========================================
 #  3. PERSIAPAN DATABASE
 # ==========================================
-echo -e "${GREEN}[3/6] Mempersiapkan Database...${NC}"
+echo -e "${GREEN}[3/7] Mempersiapkan Database...${NC}"
 mkdir -p /etc/zivpn
 # Buat database kosong jika belum ada
 if [ ! -f "/etc/zivpn/user-db.json" ]; then
@@ -66,12 +70,12 @@ if [ ! -f "/etc/zivpn/user-db.json" ]; then
 fi
 # Install tools pendukung
 apt-get update -y >/dev/null 2>&1
-apt-get install -y jq curl net-tools cron >/dev/null 2>&1
+apt-get install -y jq curl net-tools cron bc >/dev/null 2>&1
 
 # ==========================================
 #  4. SCRIPT AUTO-DELETE (XP)
 # ==========================================
-echo -e "${GREEN}[4/6] Memasang Sistem Auto-Delete (XP)...${NC}"
+echo -e "${GREEN}[4/7] Memasang Sistem Auto-Delete (XP)...${NC}"
 cat <<'EOF' > /usr/local/sbin/xp-zivpn
 #!/bin/bash
 CONFIG_FILE="/etc/zivpn/config.json"
@@ -89,10 +93,11 @@ jq -r 'to_entries[] | "\(.key)|\(.value.exp)"' "$USER_DB" | while IFS='|' read -
     if [[ $? -ne 0 ]]; then continue; fi
     
     if [[ $exp_sec -lt $now_sec ]]; then
-        # Hapus user
+        # Hapus user dari Config (Login) & Database
         jq --arg u "$username" '.auth.config -= [$u]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
         jq --arg u "$username" 'del(.[$u])' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
         RESTART_REQUIRED=true
+        echo "$(date): User $username EXPIRED and deleted." >> /var/log/zivpn-xp.log
     fi
 done
 
@@ -101,16 +106,41 @@ if [ "$RESTART_REQUIRED" = true ]; then systemctl restart "$SERVICE_NAME"; fi
 EOF
 chmod +x /usr/local/sbin/xp-zivpn
 
-# Pasang Cronjob Baru
-if ! grep -q "xp-zivpn" /var/spool/cron/crontabs/root 2>/dev/null; then
-    echo "0 0 * * * /usr/local/sbin/xp-zivpn >> /var/log/xp-zivpn.log 2>&1" >> /var/spool/cron/crontabs/root
-    service cron restart
+# ==========================================
+#  5. KONFIGURASI LIMIT QUOTA (SKIP CREATION)
+# ==========================================
+echo -e "${GREEN}[5/7] Mengkonfigurasi Limit Quota...${NC}"
+
+if [ -f "/usr/local/sbin/limit-quota" ]; then
+    chmod +x /usr/local/sbin/limit-quota
+    echo -e "   ✅ File 'limit-quota' ditemukan. Izin eksekusi diberikan."
+else
+    echo -e "   ⚠️  PERINGATAN: File '/usr/local/sbin/limit-quota' TIDAK DITEMUKAN!"
+    echo -e "       Fitur limit kuota mungkin tidak berjalan."
 fi
 
 # ==========================================
-#  6. FINALISASI & FIX UDP EXCLUDE
+#  6. PASANG CRON JOB (XP & LIMIT)
 # ==========================================
-echo -e "\n${GREEN}[6/6] Membersihkan & Restarting Services...${NC}"
+echo -e "${GREEN}[6/7] Mengaktifkan Cron Job Otomatis...${NC}"
+
+# Hapus cron lama jika ada duplikat
+sed -i '/xp-zivpn/d' /var/spool/cron/crontabs/root
+sed -i '/limit-quota/d' /var/spool/cron/crontabs/root
+
+# Tambahkan Cron Baru
+# 1. XP (Hapus Expired) jalan setiap jam 00:00
+echo "0 0 * * * /usr/local/sbin/xp-zivpn >> /var/log/xp-zivpn.log 2>&1" >> /var/spool/cron/crontabs/root
+
+# 2. Limit Quota jalan setiap 5 Menit
+echo "*/5 * * * * /usr/local/sbin/limit-quota >> /dev/null 2>&1" >> /var/spool/cron/crontabs/root
+
+service cron restart >/dev/null 2>&1
+
+# ==========================================
+#  7. FINALISASI & FIX UDP EXCLUDE
+# ==========================================
+echo -e "\n${GREEN}[7/7] Membersihkan & Restarting Services...${NC}"
 
 # Ambil Port ZiVPN Terbaru
 PORT_ZIVPN=$(grep -o '"listen": *"[^"]*"' /etc/zivpn/config.json | cut -d'"' -f4 | sed 's/://g' | sed 's/0.0.0.0//g')
@@ -122,7 +152,7 @@ if [ -f "/etc/systemd/system/udp-custom.service" ]; then
     systemctl daemon-reload
     systemctl restart udp-custom
 fi
-rm -f zi.sh
+
 clear
 echo "============================================"
 echo "      INSTALLASI SELESAI & AKTIF"
@@ -130,5 +160,6 @@ echo "============================================"
 echo " - ZiVPN Service : RUNNING"
 echo " - UDP Custom    : RUNNING"
 echo " - Auto Expired  : ACTIVE (Setiap 00:00)"
+echo " - Auto Limit    : ACTIVE (Cek tiap 5 Menit)"
 echo " - Menu Pro      : Ketik 'zivpn-menu'"
 echo "============================================"
