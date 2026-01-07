@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-#  ZIVPN ALL-IN-ONE INSTALLER (CLEAN & PRO)
+#  ZIVPN ULTIMATE INSTALLER (HOKAGE LEGEND)
 # ==========================================
 
 # --- WARNA ---
@@ -60,7 +60,7 @@ chmod +x zi.sh
 # ==========================================
 echo -e "${GREEN}[3/6] Mempersiapkan Database...${NC}"
 mkdir -p /etc/zivpn
-# Buat database kosong jika belum ada (setelah clean install)
+# Buat database kosong jika belum ada
 if [ ! -f "/etc/zivpn/user-db.json" ]; then
     echo "{}" > /etc/zivpn/user-db.json
 fi
@@ -69,7 +69,7 @@ apt-get update -y >/dev/null 2>&1
 apt-get install -y jq curl net-tools cron >/dev/null 2>&1
 
 # ==========================================
-#  4. SCRIPT AUTO-DELETE (EXP CHECKER)
+#  4. SCRIPT AUTO-DELETE (XP)
 # ==========================================
 echo -e "${GREEN}[4/6] Memasang Sistem Auto-Delete (XP)...${NC}"
 cat <<'EOF' > /usr/local/sbin/xp-zivpn
@@ -108,15 +108,20 @@ if ! grep -q "xp-zivpn" /var/spool/cron/crontabs/root 2>/dev/null; then
 fi
 
 # ==========================================
-#  5. MEMASANG MENU MANAGER PRO
+#  5. MEMASANG MENU MANAGER LENGKAP
 # ==========================================
 echo -e "${GREEN}[5/6] Memasang Menu Manager Pro...${NC}"
 cat <<'EOF' > /usr/local/sbin/zivpn-menu
 #!/bin/bash
+# ==========================================
+#  ZIVPN MANAGER - HOKAGE LEGEND STYLE
+# ==========================================
+
 CONFIG_FILE="/etc/zivpn/config.json"
 USER_DB="/etc/zivpn/user-db.json"
 SERVICE_NAME="zivpn.service"
 
+# --- WARNA ---
 RED='\e[1;31m'
 GREEN='\e[1;32m'
 YELLOW='\e[1;33m'
@@ -140,7 +145,7 @@ function add_user() {
     read -p " » Username : " username
     [ -z "$username" ] && return
     
-    # Cek apakah user sudah ada
+    # Cek Duplicate
     if grep -q "$username" "$CONFIG_FILE"; then
         echo -e "${RED}Error: Username sudah ada!${NC}"
         sleep 2
@@ -156,26 +161,26 @@ function add_user() {
     read -p " » Quota (GB) : " quota
     [ -z "$quota" ] && quota="Unlimited"
 
-    # --- Logic ---
+    # --- Logic System ---
     exp_date=$(date -d "+$masa_aktif days" +%Y-%m-%d)
     domain=$(cat /etc/xray/domain 2>/dev/null)
     [ -z "$domain" ] && domain=$(curl -s ipv4.icanhazip.com)
     IP=$(curl -s ipv4.icanhazip.com)
     
-    # Get Port
+    # Get Port ZiVPN
     PORT=$(grep -o '"listen": *"[^"]*"' $CONFIG_FILE | cut -d'"' -f4 | sed 's/://g' | sed 's/0.0.0.0//g')
     [ -z "$PORT" ] && PORT="5667"
 
-    # Save Config
+    # Save ke Database
     jq --arg user "$username" '.auth.config += [$user]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
     jq --arg u "$username" --arg e "$exp_date" --arg q "$quota" '.[$u] = {exp: $e, quota: $q}' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
     
     restart_service
     
-    # --- OUTPUT REQUESTED FORMAT ---
+    # --- OUTPUT HASIL (Sesuai Request) ---
     clear
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "🔵  HOKAGE LEGEND ZIVPN PREMIUM ACCOUNT   🔵"
+    echo -e "🔵  ZIVPN PREMIUM ACCOUNT   🔵"
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
     echo -e "➤ Domain    : $domain"
     echo -e "➤ IP        : $IP"
@@ -187,8 +192,8 @@ function add_user() {
     echo -e "➤ Port UDP  : $PORT"
     echo -e "➤ UDP Custom: 1-65535 (All Port)"
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "============ CARA PAKAI =================== "
-    echo -e "UDP SERVER   Isi Dengan       : $domain"
+    echo -e "CARA PAKAI      : "
+    echo -e "UDP SERVER    Isi Dengan       : $domain"
     echo -e "UDP PASSWORD Isi dengan       : $username"
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
     echo -e "    \033[5m\033[35mTHANKS YOU FOR \033[34mUSING SCRIPT \033[31mHOKAGE LEGEND\033[0m"
@@ -201,7 +206,7 @@ function list_users() {
     printf "${YELLOW}%-4s %-15s %-12s %s${NC}\n" "No" "Username" "Expired" "Quota"
     echo -e "${BLUE}---------------------------------------------${NC}"
     no=1
-    # Membaca array user dari config
+    # Loop Array User
     users=($(jq -r '.auth.config[]' "$CONFIG_FILE"))
     for user in "${users[@]}"; do
         exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
