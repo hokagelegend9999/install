@@ -177,7 +177,7 @@ function add_user() {
     
     restart_service
     
-    # --- OUTPUT HASIL (Sesuai Request) ---
+    # --- OUTPUT HASIL ---
     clear
     echo -e "\033[1;93m━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
     echo -e "🔵  ZIVPN PREMIUM ACCOUNT   🔵"
@@ -203,17 +203,24 @@ function add_user() {
 
 function list_users() {
     header
-    printf "${YELLOW}%-4s %-15s %-12s %s${NC}\n" "No" "Username" "Expired" "Quota"
-    echo -e "${BLUE}---------------------------------------------${NC}"
+    # PERBAIKAN: Menambahkan kolom Quota dan merapikan jarak
+    echo -e "No   Username        Expired         Quota      Status"
+    echo -e "${BLUE}------------------------------------------------------${NC}"
+    
     no=1
     # Loop Array User
     users=($(jq -r '.auth.config[]' "$CONFIG_FILE"))
+    
     for user in "${users[@]}"; do
+        # Ambil data dari DB. Jika user lama (tidak ada di db), set Unknown/Unlimited
         exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
         quota=$(jq -r --arg u "$user" '.[$u].quota // "Unlimited"' "$USER_DB")
-        printf "%-4s %-15s %-12s %s\n" "$no" "$user" "$exp" "$quota"
+        
+        # Format Printf agar rapi sejajar
+        printf "%-4s %-15s %-15s %-10s %s\n" "$no" "$user" "$exp" "$quota" "ACTIVE"
         ((no++))
     done
+    echo -e "${BLUE}------------------------------------------------------${NC}"
     read -n 1 -s -r -p "Tekan Enter..."
 }
 
@@ -222,17 +229,14 @@ function delete_user() {
     echo -e "${YELLOW}DAFTAR USER ZIVPN:${NC}"
     echo -e "${BLUE}---------------------------------------------${NC}"
     
-    # Ambil list user ke dalam array
     users=($(jq -r '.auth.config[]' "$CONFIG_FILE"))
     
-    # Cek jika kosong
     if [ ${#users[@]} -eq 0 ]; then
         echo -e "${RED}Tidak ada user yang terdaftar.${NC}"
         sleep 2
         return
     fi
 
-    # Tampilkan list dengan nomor
     no=1
     for user in "${users[@]}"; do
         exp=$(jq -r --arg u "$user" '.[$u].exp // "Unknown"' "$USER_DB")
@@ -244,20 +248,15 @@ function delete_user() {
     echo ""
     read -p "Pilih Nomor atau Ketik Username untuk dihapus : " input
 
-    # Jika pilih 0
     if [[ "$input" == "0" ]]; then return; fi
 
     target_user=""
-
-    # Logika deteksi Nomor vs Username
     if [[ "$input" =~ ^[0-9]+$ ]]; then
-        # Jika input angka, ambil dari array (index - 1)
         index=$((input - 1))
         if [[ $index -ge 0 && $index -lt ${#users[@]} ]]; then
             target_user="${users[$index]}"
         fi
     else
-        # Jika input string/nama, cek apakah ada di array
         for u in "${users[@]}"; do
             if [[ "$u" == "$input" ]]; then
                 target_user="$u"
@@ -266,19 +265,14 @@ function delete_user() {
         done
     fi
 
-    # Proses Penghapusan
     if [[ -n "$target_user" ]]; then
         echo -e "\nMenghapus user: ${RED}$target_user${NC}..."
-        
-        # Hapus dari Config
         jq --arg u "$target_user" '.auth.config -= [$u]' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-        # Hapus dari DB
         jq --arg u "$target_user" 'del(.[$u])' "$USER_DB" > "${USER_DB}.tmp" && mv "${USER_DB}.tmp" "$USER_DB"
-        
         restart_service
         echo -e "✅ User berhasil dihapus."
     else
-        echo -e "${RED}User tidak ditemukan atau pilihan salah!${NC}"
+        echo -e "${RED}User tidak ditemukan!${NC}"
     fi
     sleep 2
 }
