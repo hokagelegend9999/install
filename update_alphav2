@@ -43,6 +43,11 @@ res1() {
     sudo mv menu /usr/local/sbin/
     sudo chmod +x /usr/local/sbin/menu
     sudo chmod +x /etc/ssh/usage_db/
+    cat >/etc/cron.d/ssh_accountant <<-END
+    SHELL=/bin/sh
+    PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+    * * * * * root /usr/local/sbin/ssh-accountant
+END
 
 
 }
