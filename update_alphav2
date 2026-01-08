@@ -42,6 +42,7 @@ res1() {
     wget -O menu https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/menu/menu
     sudo mv menu /usr/local/sbin/
     sudo chmod +x /usr/local/sbin/menu
+    sudo chmod +x /etc/ssh/usage_db/
 
 
 }
