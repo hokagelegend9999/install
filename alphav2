@@ -764,17 +764,6 @@ apt autoclean -y >/dev/null 2>&1
 apt autoremove -y >/dev/null 2>&1
 print_success "ePro WebSocket Proxy"
 }
-function noobzvpn(){
-clear
-wget "${REPO}/noobzvpns.zip"
-unzip noobzvpns.zip
-cd noobzvpns
-bash install.sh
-rm noobzvpns.zip
-systemctl restart noobzvpns
-print_success "NOOBZVPN"
-}
-
 function ins_restart(){
 clear
 print_install "Restarting  All Packet"
