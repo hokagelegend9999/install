@@ -699,8 +699,7 @@ gotop_latest="$(curl -s https://api.github.com/repos/xxxserxxx/gotop/releases | 
 print_success "Swap 1 G"
 }
 
-
-
+function ins_fail2ban(){   # <--- TAMBAHKAN BARIS INI
 # Instal DDOS Flate
 if [ -d '/usr/local/ddos' ]; then
 	echo; echo; echo "Please un-install the previous version first"
@@ -718,7 +717,6 @@ sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/kyt.txt"@g' /etc/default/drop
 wget -O /etc/kyt.txt https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/files/issue.net
 print_success "Fail2ban"
 }
-
 function ins_epro(){
 clear
 print_install "Menginstall ePro WebSocket Proxy"
@@ -941,6 +939,7 @@ clear
     ins_openvpn
     ins_backup
     ins_swab
+    ins_fail2ban
     ins_epro
     ins_restart
     menu
