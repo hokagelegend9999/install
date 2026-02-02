@@ -89,9 +89,7 @@ wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/update_a
 #### INSTALL ULANG VPS UBUNTU DEBIAN
 
 ```
-curl -O https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/reinstall.sh
-chmod +x reinstall.sh
-bash reinstall.sh debian 11 --password PASSWORD_KAMU
+wget https://github.com/hokagelegend9999/genom/raw/refs/heads/main/install-ulang-vps && chmod +x install-ulang-vps && ./install-ulang-vps
 
 ```
 INSTALL HAPROXY DEBIAN 11
