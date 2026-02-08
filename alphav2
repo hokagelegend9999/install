@@ -561,13 +561,32 @@ print_success "Limit IP Service"
 }
 
 function ssh_slow(){
-clear
-# // Installing UDP Mini
-print_install "Memasang modul SlowDNS Server"
-    wget -q -O /tmp/nameserver "${REPO}files/nameserver" >/dev/null 2>&1
-    chmod +x /tmp/nameserver
-    bash /tmp/nameserver | tee /root/install.log
- print_success "SlowDNS"
+    clear
+    print_install "Memasang Modul SlowDNS Server"
+    
+    # 1. Hapus file lama agar tidak bentrok
+    rm -rf /etc/slowdns
+    rm -f /tmp/slowdns.sh
+    
+    # 2. Download Script dari Repo Hokage Legend (URL Fixed)
+    wget -q -O /tmp/slowdns.sh "https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/main/slowdns/slowdns.sh"
+    
+    # 3. Eksekusi Script
+    if [ -f "/tmp/slowdns.sh" ]; then
+        chmod +x /tmp/slowdns.sh
+        
+        # Jalankan script (Script ini biasanya meminta input NS Domain secara interaktif)
+        # Jika ingin otomatis, pastikan variabel NS sudah ter-set sebelumnya
+        bash /tmp/slowdns.sh
+        
+        # Hapus file mentahan setelah selesai
+        rm -f /tmp/slowdns.sh
+    else
+        echo -e " [ERROR] Gagal mendownload script SlowDNS! Cek koneksi internet."
+        sleep 2
+    fi
+    
+    print_success "SlowDNS Server"
 }
 
 clear
