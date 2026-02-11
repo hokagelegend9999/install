@@ -584,19 +584,19 @@ function ssh_slow(){
     wget -q -O /tmp/slowdns.sh "https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/main/slowdns/slowdns.sh"
     chmod +x /tmp/slowdns.sh
 
-    # LOGIKA BARU: Jika ada AUTO_NS dari bot, kirimkan langsung ke script slowdns
+    # LOGIKA AUTO-INPUT: Mengirimkan AUTO_NS ke dalam prompt script
     if [[ -n "$AUTO_NS" ]]; then
         echo -e "${green} [BOT MODE] Auto Configure SlowDNS: $AUTO_NS ${NC}"
-        # Jalankan script dengan memberikan input otomatis untuk subdomain
+        # printf memberikan input Enter otomatis untuk subdomain
         printf "$AUTO_NS\n" | bash /tmp/slowdns.sh
     else
+        # Jika dijalankan manual di terminal
         bash /tmp/slowdns.sh
     fi
     
     rm -f /tmp/slowdns.sh
     print_success "SlowDNS Server"
 }
-
 clear
 function ins_SSHD(){
     clear
