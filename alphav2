@@ -580,27 +580,20 @@ function ssh_slow(){
     clear
     print_install "Memasang Modul SlowDNS Server"
     
-    # 1. Hapus file lama agar tidak bentrok
-    rm -rf /etc/slowdns
-    rm -f /tmp/slowdns.sh
-    
-    # 2. Download Script dari Repo Hokage Legend (URL Fixed)
+    # Download script SlowDNS
     wget -q -O /tmp/slowdns.sh "https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/main/slowdns/slowdns.sh"
-    
-    # 3. Eksekusi Script
-    if [ -f "/tmp/slowdns.sh" ]; then
-        chmod +x /tmp/slowdns.sh
-        
-        # Jalankan script (Script ini biasanya meminta input NS Domain secara interaktif)
-        # Jika ingin otomatis, pastikan variabel NS sudah ter-set sebelumnya
-        bash /tmp/slowdns.sh
-        
-        # Hapus file mentahan setelah selesai
-        rm -f /tmp/slowdns.sh
+    chmod +x /tmp/slowdns.sh
+
+    # LOGIKA BARU: Jika ada AUTO_NS dari bot, kirimkan langsung ke script slowdns
+    if [[ -n "$AUTO_NS" ]]; then
+        echo -e "${green} [BOT MODE] Auto Configure SlowDNS: $AUTO_NS ${NC}"
+        # Jalankan script dengan memberikan input otomatis untuk subdomain
+        printf "$AUTO_NS\n" | bash /tmp/slowdns.sh
     else
-        echo -e " [ERROR] Gagal mendownload script SlowDNS! Cek koneksi internet."
-        sleep 2
+        bash /tmp/slowdns.sh
     fi
+    
+    rm -f /tmp/slowdns.sh
     print_success "SlowDNS Server"
 }
 
