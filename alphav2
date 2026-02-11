@@ -38,9 +38,13 @@ function update_progress() {
 
     local text="🚀 <b>INSTALLATION IN PROGRESS</b>%0A"
     text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
-    text+="📡 <b>Target IP:</b> <code>$IP</code>%0A"
+    text+="📡 <b>IP Target:</b> <code>$IP</code>%0A"
     text+="🛠 <b>Status:</b> <i>$status</i>%0A%0A"
-    text+="<code>[$bar] $percent%</code>"
+    text+="<code>[$bar] $percent%</code>%0A"
+    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
+    text+="💻 <b>Monitor terminal secara live:</b>%0A"
+    text+="<code>screen -r setup</code>%0A"
+    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
     curl -s -X POST "https://api.telegram.org/bot${token}/editMessageText" \
         -d chat_id="${AUTO_CHATID}" \
