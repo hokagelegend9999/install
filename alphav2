@@ -477,13 +477,17 @@ function ins_fail2ban(){
 function ins_epro(){
     clear
     print_install "Menginstall ePro WebSocket Proxy"
+    # Download Binari
     wget -O /usr/bin/ws "${REPO}files/ws" >/dev/null 2>&1
+    # Download Konfigurasi (BAGIAN YANG HILANG)
+    wget -O /usr/bin/tun.conf "${REPO}config/tun.conf" >/dev/null 2>&1
+    # Download Service
     wget -O /etc/systemd/system/ws.service "${REPO}files/ws.service" >/dev/null 2>&1
+    
     chmod +x /usr/bin/ws
-    # Pastikan daemon-reload agar service terbaca
+    chmod +x /usr/bin/tun.conf
     systemctl daemon-reload
     systemctl enable --now ws
-    systemctl restart ws
     print_success "ePro WebSocket Proxy"
 }
 
