@@ -23,12 +23,33 @@ purple="\e[0;33m"
 BOT_TOKEN="8401742770:AAFs81f2dBEfAIgr9uq2i_96ryclSG95ue8"
 CHATID="1469244768"
 
-# Fungsi Kirim Pesan ke Telegram
-function msg_bot() {
-    local message="$1"
-    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-        -d chat_id="${CHATID}" \
-        -d text="${message}" \
+function update_progress() {
+    local percent="$1"
+    local status="$2"
+    local msg_id="$AUTO_MSGID"
+    local chat_id="$AUTO_CHATID"
+    
+    # Logic Progress Bar (Total 20 kotak)
+    local completed=$(( percent / 5 ))
+    local remaining=$(( 20 - completed ))
+    local bar=""
+    for ((i=0; i<completed; i++)); do bar+="█"; done
+    for ((i=0; i<remaining; i++)); do bar+="░"; done
+
+    local text="🚀 <b>INSTALLATION IN PROGRESS</b>%0A"
+    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
+    text+="📡 <b>Target:</b> <code>$IP</code>%0A"
+    text+="🌐 <b>Domain:</b> <code>$AUTO_DOMAIN</code>%0A"
+    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
+    text+="🛠 <b>Status:</b> <i>$status</i>%0A"
+    text+="<code>[$bar] $percent%</code>%0A"
+    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+
+    # Gunakan API editMessageText agar tidak spam chat
+    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText" \
+        -d chat_id="${chat_id}" \
+        -d message_id="${msg_id}" \
+        -d text="${text}" \
         -d parse_mode="html" > /dev/null 2>&1
 }
 
@@ -431,7 +452,7 @@ function make_folder_xray() {
 #Instal Xray
 function install_xray() {
     clear
-    print_install "Core Xray 1.8.1 Latest Version"
+    print_install "Core Xray 26.1.21 Latest Version"
     domainSock_dir="/run/xray";! [ -d $domainSock_dir ] && mkdir  $domainSock_dir
     chown www-data.www-data $domainSock_dir
     
@@ -955,37 +976,77 @@ function enable_services(){
     clear
 }
 
-# Fingsi Install Script
+# =========================================
+# MAIN EXECUTION (WITH PROGRESS BAR)
+# =========================================
 function instal(){
     clear
+    # Progress 5% - Awal
+    update_progress 5 "Menyiapkan System & Timezone..."
     first_setup
+    
+    # Progress 15% - Webserver
+    update_progress 15 "Menginstall Nginx Webserver..."
     nginx_install
+    
+    # Progress 25% - Dependencies
+    update_progress 25 "Menginstall Dependencies Paket..."
     base_package
+    
+    # Progress 35% - Direktori
+    update_progress 35 "Membuat Struktur Direktori Xray..."
     make_folder_xray
+    
+    # Progress 45% - Domain & SSL
+    update_progress 45 "Konfigurasi Domain & SSL Certificate..."
     pasang_domain
-    password_default
     pasang_ssl
+    
+    # Progress 55% - Core Xray
+    update_progress 55 "Menginstall Xray Core & Konfigurasi..."
     install_xray
+    
+    # Progress 65% - SSH & Password
+    update_progress 65 "Mengatur Password SSH & Optimization..."
     ssh
+    password_default
+    
+    # Progress 75% - DNS & UDP
+    update_progress 75 "Menginstall SlowDNS & UDP Custom..."
     udp_mini
     ssh_slow
     ins_udpSSH
+    
+    # Progress 85% - VPN Services
+    update_progress 85 "Menginstall Dropbear, Vnstat & OpenVPN..."
     ins_SSHD
     ins_dropbear
     ins_vnstat
     ins_openvpn
+    
+    # Progress 90% - Extras
+    update_progress 90 "Memasang Backup Server & Fail2Ban..."
     ins_backup
     ins_swab
     ins_fail2ban
     ins_epro
+    
+    # Progress 95% - Finalizing
+    update_progress 95 "Finalisasi Menu & Restart Services..."
     ins_restart
     menu
     profile
     enable_services
+    
+    # Progress 100% - Selesai
+    update_progress 100 "Instalasi Selesai! Mengirim Laporan..."
+    sleep 2
+    
+    # Jalankan Laporan Akhir & Reboot
     final_report
-    # Final Report akan dikirim oleh password_default di atas
 }
 
+# Jalankan proses instalasi
 instal
 echo ""
 history -c
