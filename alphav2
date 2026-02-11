@@ -591,26 +591,18 @@ function udp_mini(){
 }
 
 function ssh_slow(){
-    clear
-    print_install "Memasang Modul SlowDNS Server"
+    # Update Progress sebelum menjalankan proses berat
+    update_progress 75 "Menginstall & Konfigurasi SlowDNS..."
     
-    # Download script SlowDNS
+    # Download script slowdns yang sudah diperbaiki di atas
     wget -q -O /tmp/slowdns.sh "https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/main/slowdns/slowdns.sh"
     chmod +x /tmp/slowdns.sh
-
-    # LOGIKA AUTO-INPUT: Mengirimkan AUTO_NS ke dalam prompt script
-    if [[ -n "$AUTO_NS" ]]; then
-        echo -e "${green} [BOT MODE] Auto Configure SlowDNS: $AUTO_NS ${NC}"
-        # printf memberikan input Enter otomatis untuk subdomain
-        printf "$AUTO_NS\n" | bash /tmp/slowdns.sh
-    else
-        # Jika dijalankan manual di terminal
-        bash /tmp/slowdns.sh
-    fi
+    
+    # Wariskan variabel AUTO_NS agar dibaca oleh script
+    export AUTO_NS="${AUTO_NS}"
+    bash /tmp/slowdns.sh
     
     rm -f /tmp/slowdns.sh
-    print_success "SlowDNS Server"
-
 }
 
 clear
