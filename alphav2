@@ -17,19 +17,12 @@ red='\e[1;31m'
 green='\e[0;32m'
 purple="\e[0;33m"
 
-# =========================================
-# KONFIGURASI BOT TELEGRAM (AUTO REPORT)
-# =========================================
-BOT_TOKEN="8401742770:AAFs81f2dBEfAIgr9uq2i_96ryclSG95ue8"
-CHATID="1469244768"
-
 function update_progress() {
     local percent="$1"
     local status="$2"
-    local msg_id="$AUTO_MSGID"
-    local chat_id="$AUTO_CHATID"
-    
-    # Logic Progress Bar (Total 20 kotak)
+    local token="8401742770:AAFs81f2dBEfAIgr9uq2i_96ryclSG95ue8"
+
+    # Bar logic
     local completed=$(( percent / 5 ))
     local remaining=$(( 20 - completed ))
     local bar=""
@@ -38,17 +31,13 @@ function update_progress() {
 
     local text="🚀 <b>INSTALLATION IN PROGRESS</b>%0A"
     text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
-    text+="📡 <b>Target:</b> <code>$IP</code>%0A"
-    text+="🌐 <b>Domain:</b> <code>$AUTO_DOMAIN</code>%0A"
-    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
-    text+="🛠 <b>Status:</b> <i>$status</i>%0A"
-    text+="<code>[$bar] $percent%</code>%0A"
-    text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+    text+="📡 <b>IP:</b> <code>$IP</code>%0A"
+    text+="🛠 <b>Status:</b> <i>$status</i>%0A%0A"
+    text+="<code>[$bar] $percent%</code>"
 
-    # Gunakan API editMessageText agar tidak spam chat
-    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText" \
-        -d chat_id="${chat_id}" \
-        -d message_id="${msg_id}" \
+    curl -s -X POST "https://api.telegram.org/bot${token}/editMessageText" \
+        -d chat_id="${AUTO_CHATID}" \
+        -d message_id="${AUTO_MSGID}" \
         -d text="${text}" \
         -d parse_mode="html" > /dev/null 2>&1
 }
