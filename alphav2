@@ -269,7 +269,6 @@ function pasang_ssl() {
     chmod 777 /etc/xray/xray.key
     print_success "SSL Certificate"
 }
-# ... (Sambungan dari Halaman 2)
 
 function install_xray() {
     clear
@@ -286,8 +285,10 @@ function install_xray() {
     wget -O /etc/systemd/system/runn.service "${REPO}files/runn.service" >/dev/null 2>&1
     
     domain=$(cat /etc/xray/domain)
-    curl -s ipinfo.io/city >>/etc/xray/city
-    curl -s ipinfo.io/org | cut -d " " -f 2-10 >>/etc/xray/isp
+    
+    # PERBAIKAN: Gunakan simbol '>' dan tambahkan timeout agar tidak Unknown City
+    curl -s --connect-timeout 5 ipinfo.io/city > /etc/xray/city
+    curl -s --connect-timeout 5 ipinfo.io/org | cut -d " " -f 2-10 > /etc/xray/isp
     
     # Settings UP Nginx & Haproxy
     wget -O /etc/haproxy/haproxy.cfg "${REPO}config/haproxy.cfg" >/dev/null 2>&1
@@ -296,10 +297,13 @@ function install_xray() {
     sed -i "s/xxx/${domain}/g" /etc/nginx/conf.d/xray.conf
     sudo curl -fsSL https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/nginx.conf -o /etc/nginx/nginx.conf
     
+    # Gabungkan Sertifikat untuk HAProxy
     cat /etc/xray/xray.crt /etc/xray/xray.key | tee /etc/haproxy/hap.pem
+    chmod 644 /etc/haproxy/hap.pem
 
     # Set Permission & Create Service
     chmod +x /etc/systemd/system/runn.service
+}
     cat >/etc/systemd/system/xray.service <<EOF
 [Unit]
 Description=Xray Service
