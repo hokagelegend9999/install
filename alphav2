@@ -20,7 +20,7 @@ purple="\e[0;33m"
 # =========================================
 # KONFIGURASI BOT TELEGRAM (AUTO REPORT)
 # =========================================
-BOT_TOKEN="7911375235:AAERwknqnWLoqWFbsSuUfqCQGMy93UQHUTk"
+BOT_TOKEN="8401742770:AAFs81f2dBEfAIgr9uq2i_96ryclSG95ue8"
 CHATID="1469244768"
 
 # Fungsi Kirim Pesan ke Telegram
@@ -39,7 +39,7 @@ clear
 export IP=$( curl -sS icanhazip.com )
 clear
 
-# Kirim Notifikasi Awal (Jika Auto Install)
+# Kirim Notifikasi Awal (Jika dari Bot)
 if [[ -n "$AUTO_DOMAIN" ]]; then
     msg_bot "🚀 <b>INSTALLER DIMULAI!</b>%0A%0ATarget: <code>$IP</code>%0AStatus: <i>Menyiapkan System...</i>"
 fi
@@ -213,7 +213,7 @@ function nginx_install() {
         apt -y install nginx 
     fi
     
-    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "📦 Dependencies & Nginx Installed."; fi
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "📦 <b>PROGRESS:</b> Dependencies & Nginx Installed."; fi
 }
 
 # Update and remove packages
@@ -247,6 +247,8 @@ function base_package() {
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
     sudo apt-get install -y speedtest-cli vnstat libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev bc rsyslog dos2unix zlib1g-dev libssl-dev libsqlite3-dev sed dirmngr libxml-parser-perl build-essential gcc g++ python htop lsof tar wget curl ruby zip unzip p7zip-full python3-pip libc6 util-linux build-essential msmtp-mta ca-certificates bsd-mailx iptables iptables-persistent netfilter-persistent net-tools openssl ca-certificates gnupg gnupg2 ca-certificates lsb-release gcc shc make cmake git screen socat xz-utils apt-transport-https gnupg1 dnsutils cron bash-completion ntpdate chrony jq openvpn easy-rsa
     print_success "Packet Yang Dibutuhkan"
+
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "📦 <b>PROGRESS:</b> Base Packets Completed."; fi
 }
 clear
 
@@ -269,7 +271,7 @@ function pasang_domain() {
             echo "$AUTO_NS" > /etc/xray/dns
             echo "$AUTO_NS" > /root/nsdomain
         fi
-        msg_bot "🌐 Domain Set: <code>$host1</code>"
+        msg_bot "🌐 <b>PROGRESS:</b> Domain Set to <code>$host1</code>"
         echo ""
     else
         # --- MODE MANUAL ---
@@ -368,8 +370,8 @@ function pasang_ssl() {
     ~/.acme.sh/acme.sh --installcert -d $domain --fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc
     chmod 777 /etc/xray/xray.key
     print_success "SSL Certificate"
-    
-    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "🔒 SSL Certificate Installed."; fi
+
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "🔒 <b>PROGRESS:</b> SSL Certificate Issued."; fi
 }
 
 function make_folder_xray() {
@@ -473,8 +475,8 @@ LimitNOFILE=1000000
 WantedBy=multi-user.target
 EOF
     print_success "Konfigurasi Packet"
-    
-    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "☢️ Xray Core Installed."; fi
+
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "☢️ <b>PROGRESS:</b> Xray Core & Config Installed."; fi
 }
 
 function ssh(){
@@ -596,7 +598,10 @@ function ssh_slow(){
     
     rm -f /tmp/slowdns.sh
     print_success "SlowDNS Server"
+
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "🐢 <b>PROGRESS:</b> SlowDNS Server Activated."; fi
 }
+
 clear
 function ins_SSHD(){
     clear
@@ -629,6 +634,8 @@ function ins_udpSSH(){
     bash udp-custom.sh
     rm -fr udp-custom.sh
     print_success "Udp-custom"
+    
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "🛡️ <b>PROGRESS:</b> UDP-Custom Installed."; fi
 }
 
 clear
@@ -775,6 +782,8 @@ function ins_epro(){
     apt autoclean -y >/dev/null 2>&1
     apt autoremove -y >/dev/null 2>&1
     print_success "ePro WebSocket Proxy"
+
+    if [[ -n "$AUTO_DOMAIN" ]]; then msg_bot "🌐 <b>PROGRESS:</b> WebSocket Proxy & Firewall Rules Completed."; fi
 }
 
 function ins_restart(){
