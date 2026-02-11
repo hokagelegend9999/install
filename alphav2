@@ -66,7 +66,18 @@ fi
 
 # // Validate Successfull
 echo ""
-read -p "$( echo -e "Press ${GRAY}[ ${NC}${green}Enter${NC} ${GRAY}]${NC} For Starting Installation") "
+
+# =================================================================
+# [MODIFIKASI] AUTO DETECT BOT MODE (BYPASS ENTER)
+# =================================================================
+if [[ -n "$AUTO_DOMAIN" ]]; then
+    echo -e "${green} [BOT MODE DETECTED] Auto-Starting Installation... ${NC}"
+    sleep 2
+else
+    read -p "$( echo -e "Press ${GRAY}[ ${NC}${green}Enter${NC} ${GRAY}]${NC} For Starting Installation") "
+fi
+# =================================================================
+
 echo ""
 clear
 if [ "${EUID}" -ne 0 ]; then
@@ -237,33 +248,55 @@ function base_package() {
     
 }
 clear
-# Fungsi input domain
+
+# =================================================================
+# [MODIFIKASI] FUNGSI INPUT DOMAIN (BOT SUPPORT)
+# =================================================================
 function pasang_domain() {
-echo -e ""
-clear
-    echo -e "   .----------------------------------."
-echo -e "   |\e[1;32mPILIH DOMAIN SILAHKAN \e[0m|"
-echo -e "   '----------------------------------'"
-echo -e "     \e[1;32m1)\e[0m Menggunakan Domain Sendiri"
-echo -e "     \e[1;32m2)\e[0m Menggunakan Domain Script"
-echo -e "   ------------------------------------"
-read -p "   Please select numbers 1-2 or Any Button(Random) : " host
-echo ""
-if [[ $host == "1" ]]; then
-echo -e "   \e[1;32mPlease Enter Your Subdomain $NC"
-read -p "   Subdomain: " host1
-echo "IP=" >> /var/lib/kyt/ipvps.conf
-echo $host1 > /etc/xray/domain
-echo $host1 > /root/domain
-echo ""
-elif [[ $host == "2" ]]; then
-#install cf
-wget ${REPO}files/cf.sh && chmod +x cf.sh && ./cf.sh
-rm -f /root/cf.sh
-clear
-else
-print_install "Random Subdomain/Domain is Used"
-clear
+    # Cek apakah ada Variable AUTO_DOMAIN dari Bot?
+    if [[ -n "$AUTO_DOMAIN" ]]; then
+        echo -e ""
+        echo -e "${green} [BOT MODE] Using Auto Domain: $AUTO_DOMAIN ${NC}"
+        host1="$AUTO_DOMAIN"
+        echo "IP=" >> /var/lib/kyt/ipvps.conf
+        echo "$host1" > /etc/xray/domain
+        echo "$host1" > /root/domain
+        
+        # Cek apakah ada NS Domain dari Bot?
+        if [[ -n "$AUTO_NS" ]]; then
+            echo -e "${green} [BOT MODE] Using NS Domain: $AUTO_NS ${NC}"
+            echo "$AUTO_NS" > /etc/xray/dns
+            echo "$AUTO_NS" > /root/nsdomain
+        fi
+        echo ""
+    else
+        # --- MODE MANUAL (JIKA DIJALANKAN MANUSIA) ---
+        echo -e ""
+        clear
+        echo -e "   .----------------------------------."
+        echo -e "   |\e[1;32mPILIH DOMAIN SILAHKAN \e[0m|"
+        echo -e "   '----------------------------------'"
+        echo -e "     \e[1;32m1)\e[0m Menggunakan Domain Sendiri"
+        echo -e "     \e[1;32m2)\e[0m Menggunakan Domain Script"
+        echo -e "   ------------------------------------"
+        read -p "   Please select numbers 1-2 or Any Button(Random) : " host
+        echo ""
+        if [[ $host == "1" ]]; then
+            echo -e "   \e[1;32mPlease Enter Your Subdomain $NC"
+            read -p "   Subdomain: " host1
+            echo "IP=" >> /var/lib/kyt/ipvps.conf
+            echo $host1 > /etc/xray/domain
+            echo $host1 > /root/domain
+            echo ""
+        elif [[ $host == "2" ]]; then
+            #install cf
+            wget ${REPO}files/cf.sh && chmod +x cf.sh && ./cf.sh
+            rm -f /root/cf.sh
+            clear
+        else
+            print_install "Random Subdomain/Domain is Used"
+            clear
+        fi
     fi
 }
 
@@ -707,7 +740,7 @@ gotop_latest="$(curl -s https://api.github.com/repos/xxxserxxx/gotop/releases | 
     chown root:root /swapfile
     chmod 0600 /swapfile >/dev/null 2>&1
     swapon /swapfile >/dev/null 2>&1
-    sed -i '$ i\/swapfile      swap swap   defaults    0 0' /etc/fstab
+    sed -i '$ i\/swapfile       swap swap   defaults    0 0' /etc/fstab
 
     # > Singkronisasi jam
     chronyd -q 'server 0.id.pool.ntp.org iburst'
@@ -797,7 +830,7 @@ systemctl restart haproxy
     systemctl enable --now haproxy
     systemctl enable --now netfilter-persistent
     systemctl enable --now ws
-   
+    
 history -c
 echo "unset HISTFILE" >> /etc/profile
 
@@ -982,29 +1015,29 @@ echo ""
 echo "------------------------------------------------------------"
 echo ""
 echo "   >>> Service & Port"  | tee -a log-install.txt
-echo "   - OpenSSH                 : 22, 53, 2222, 2269"  | tee -a log-install.txt
-echo "   - SSH Websocket           : 80" | tee -a log-install.txt
-echo "   - SSH SSL Websocket       : 443" | tee -a log-install.txt
-echo "   - Stunnel5                : 222, 777" | tee -a log-install.txt
-echo "   - Dropbear                : 109, 143" | tee -a log-install.txt
-echo "   - Badvpn                  : 7100-7300" | tee -a log-install.txt
-echo "   - Nginx                   : 81" | tee -a log-install.txt
-echo "   - XRAY  Vmess TLS         : 443" | tee -a log-install.txt
-echo "   - XRAY  Vmess None TLS    : 80" | tee -a log-install.txt
-echo "   - XRAY  Vless TLS         : 443" | tee -a log-install.txt
-echo "   - XRAY  Vless None TLS    : 80" | tee -a log-install.txt
-echo "   - Trojan GRPC             : 443" | tee -a log-install.txt
-echo "   - Trojan WS               : 443" | tee -a log-install.txt
-echo "   - Trojan GO               : 443" | tee -a log-install.txt
-echo "   - Sodosok WS/GRPC         : 443" | tee -a log-install.txt
-echo "   - SLOWDNS                 : 53"  | tee -a log-install.txt
+echo "   - OpenSSH                   : 22, 53, 2222, 2269"  | tee -a log-install.txt
+echo "   - SSH Websocket             : 80" | tee -a log-install.txt
+echo "   - SSH SSL Websocket         : 443" | tee -a log-install.txt
+echo "   - Stunnel5                  : 222, 777" | tee -a log-install.txt
+echo "   - Dropbear                  : 109, 143" | tee -a log-install.txt
+echo "   - Badvpn                    : 7100-7300" | tee -a log-install.txt
+echo "   - Nginx                     : 81" | tee -a log-install.txt
+echo "   - XRAY  Vmess TLS           : 443" | tee -a log-install.txt
+echo "   - XRAY  Vmess None TLS      : 80" | tee -a log-install.txt
+echo "   - XRAY  Vless TLS           : 443" | tee -a log-install.txt
+echo "   - XRAY  Vless None TLS      : 80" | tee -a log-install.txt
+echo "   - Trojan GRPC               : 443" | tee -a log-install.txt
+echo "   - Trojan WS                 : 443" | tee -a log-install.txt
+echo "   - Trojan GO                 : 443" | tee -a log-install.txt
+echo "   - Sodosok WS/GRPC           : 443" | tee -a log-install.txt
+echo "   - SLOWDNS                   : 53"  | tee -a log-install.txt
 echo ""  | tee -a log-install.txt
 echo "   >>> Server Information & Other Features"  | tee -a log-install.txt
-echo "   - Timezone                : Asia/Jakarta (GMT +7)"  | tee -a log-install.txt
-echo "   - Dflate                  : [ON]"  | tee -a log-install.txt
-echo "   - IPtables                : [ON]"  | tee -a log-install.txt
-echo "   - Auto-Reboot             : [ON]"  | tee -a log-install.txt
-echo "   - IPv6                    : [OFF]"  | tee -a log-install.txt
+echo "   - Timezone                  : Asia/Jakarta (GMT +7)"  | tee -a log-install.txt
+echo "   - Dflate                    : [ON]"  | tee -a log-install.txt
+echo "   - IPtables                  : [ON]"  | tee -a log-install.txt
+echo "   - Auto-Reboot               : [ON]"  | tee -a log-install.txt
+echo "   - IPv6                      : [OFF]"  | tee -a log-install.txt
 echo "   - Autobackup Data" | tee -a log-install.txt
 echo "   - AutoKill Multi Login User" | tee -a log-install.txt
 echo "   - Auto Delete Expired Account" | tee -a log-install.txt
