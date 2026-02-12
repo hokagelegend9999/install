@@ -147,6 +147,8 @@ NC='\e[0m'
 MYIP=$(curl -sS ipv4.icanhazip.com)
 clear
 apt install ruby -y
+apt install chrony
+apt install chronyd
 gem install lolcat
 apt install wondershaper -y
 clear
