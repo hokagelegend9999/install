@@ -1003,44 +1003,64 @@ print_install "Enable Service"
 
 # Fingsi Install Script
 function instal(){
-clear
+    clear
+    # 0% - Mulai
+    update_progress 2 "MEMULAI PROSES INSTALASI"
+    
+    # 5% - Pengecekan Awal
     update_progress 5 "MEMERIKSA KONEKSI & IP"
     first_setup
+    
+    # 10% - Webserver
     update_progress 10 "INSTALL NGINX WEBSERVER"
     nginx_install
+    
+    # 20% - Paket Dasar
     update_progress 20 "UPDATE SISTEM & DEPENDENSI"
     base_package
+    
+    # 30% - Domain & SSL
     update_progress 25 "MEMBUAT FOLDER XRAY"
     make_folder_xray
     update_progress 30 "KONFIGURASI DOMAIN"
     pasang_domain
-    password_default
-    update_progress 40 "INSTALL SSL CERTIFICATE"
+    # password_default (Pastikan fungsi ini ada di script Anda)
+    
+    update_progress 45 "INSTALL SSL CERTIFICATE (MOHON TUNGGU)"
     pasang_ssl
-    update_progress 50 "INSTALL XRAY CORE"
+    
+    # 60% - Core Services
+    update_progress 60 "INSTALL XRAY CORE & CONFIG"
     install_xray
-    update_progress 60 "SETUP SSH & PASSWORD"
+    
+    # 70% - Networking & Security
+    update_progress 70 "SETUP SSH, LIMIT IP & SLOWDNS"
     ssh
-    update_progress 70 "SETUP LIMIT IP & SLOWDNS"
     udp_mini
     ssh_slow
     ins_udpSSH
     ins_SSHD
     ins_dropbear
     ins_vnstat
+    
+    # 85% - VPN Protocols & Backup
+    update_progress 85 "SETUP VPN PROTOCOLS & BACKUP"
     ins_openvpn
-    update_progress 80 "SETUP VPN LAINNYA & FINALISASI"
-    ins_openvpn
+    ins_backup
     ins_swab
     ins_Fail2ban
-    update_progress 90 "SETUP WEBSOCKET & SSHD"
+    
+    # 95% - Finalizing
+    update_progress 95 "SETUP WEBSOCKET & MENU SYSTEM"
     ins_epro
     noobzvpn
     ins_restart
     menu
     profile
     enable_services
-    restart_system
+    restart_system # Notifikasi login ke admin juga terpicu di sini
+    
+    # 100% - Selesai
     update_progress 100 "INSTALASI SELESAI! REBOOTING..."
     sleep 2
     send_final_report
