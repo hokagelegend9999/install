@@ -306,7 +306,6 @@ function install_xray() {
 
     # Set Permission & Create Service
     chmod +x /etc/systemd/system/runn.service
-}
     cat >/etc/systemd/system/xray.service <<EOF
 [Unit]
 Description=Xray Service
