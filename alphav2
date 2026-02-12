@@ -1,7 +1,7 @@
 #!/bin/bash
 # =========================================
 # QUICK SETUP & AUTO INSTALLER (BOT SUPPORT)
-# Edition : Stable Edition 3.5
+# Edition : Stable Edition 3.5 (Fixed Auto)
 # Author  : HOKAGE STORE®
 # =========================================
 Green="\e[92;1m"
@@ -46,20 +46,23 @@ function update_progress() {
     text+="<code>screen -r setup</code>%0A"
     text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
-    curl -s -X POST "https://api.telegram.org/bot${token}/editMessageText" \
-        -d chat_id="${AUTO_CHATID}" \
-        -d message_id="${AUTO_MSGID}" \
-        -d text="${text}" \
-        -d parse_mode="html" > /dev/null 2>&1
+    # Kirim hanya jika AUTO_CHATID ada (Mode Bot)
+    if [[ -n "$AUTO_CHATID" ]]; then
+        curl -s -X POST "https://api.telegram.org/bot${token}/editMessageText" \
+            -d chat_id="${AUTO_CHATID}" \
+            -d message_id="${AUTO_MSGID}" \
+            -d text="${text}" \
+            -d parse_mode="html" > /dev/null 2>&1
+    fi
 }
 
 function send_final_report() {
     local domain_vps=$(cat /etc/xray/domain)
     local TEXT_FINAL="✅ <b>INSTALLATION COMPLETED!</b>%0A"
     TEXT_FINAL+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
-    TEXT_FINAL+="📡 <b>IP VPS  :</b> <code>$IP</code>%0A"
-    TEXT_FINAL+="🌐 <b>Domain  :</b> <code>$domain_vps</code>%0A"
-    TEXT_FINAL+="📅 <b>Waktu   :</b> <code>$(date)</code>%0A"
+    TEXT_FINAL+="📡 <b>IP VPS   :</b> <code>$IP</code>%0A"
+    TEXT_FINAL+="🌐 <b>Domain   :</b> <code>$domain_vps</code>%0A"
+    TEXT_FINAL+="📅 <b>Waktu    :</b> <code>$(date)</code>%0A"
     TEXT_FINAL+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
     TEXT_FINAL+="Server sedang melakukan <b>Reboot</b> untuk menerapkan konfigurasi.%0A"
     TEXT_FINAL+="Silakan tunggu sekitar 1-2 menit, lalu silakan login kembali.%0A%0A"
@@ -67,19 +70,22 @@ function send_final_report() {
 
     local KEYBOARD='{"inline_keyboard": [[{"text": "🔙 KEMBALI KE MENU", "callback_data": "menu"}]]}'
 
-    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText" \
-         -d chat_id="$AUTO_CHATID" \
-         -d message_id="$AUTO_MSGID" \
-         -d text="$TEXT_FINAL" \
-         -d parse_mode="html" \
-         -d reply_markup="$KEYBOARD"
+    if [[ -n "$AUTO_CHATID" ]]; then
+        curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText" \
+             -d chat_id="$AUTO_CHATID" \
+             -d message_id="$AUTO_MSGID" \
+             -d text="$TEXT_FINAL" \
+             -d parse_mode="html" \
+             -d reply_markup="$KEYBOARD"
+    fi
 }
 
 # =========================================
 # SYSTEM CHECK
 # =========================================
 clear
-export IP=$( curl -sS icanhazip.com )
+# [FIX] Paksa ambil IPv4 agar tidak deteksi IPv6 (2001:df4...)
+export IP=$( curl -sS ipv4.icanhazip.com )
 clear
 
 # Kirim Notifikasi Awal
@@ -123,7 +129,7 @@ else
     read -p "$( echo -e "Press ${GRAY}[ ${NC}${green}Enter${NC} ${GRAY}]${NC} For Starting Installation") "
 fi
 
-# REPO    
+# REPO     
 REPO="https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/"
 start=$(date +%s)
 secs_to_human() {
@@ -146,9 +152,8 @@ function print_success() {
         sleep 2
     fi
 }
-# ... (Sambungan dari Halaman 1)
 
-# Fungsi Pembuatan Folder (Mencegah error No such file or directory)
+# Fungsi Pembuatan Folder
 function make_folder_xray() {
     print_install "Membuat direktori sistem xray & kyt"
     mkdir -p /etc/bot
@@ -219,8 +224,17 @@ function nginx_install() {
 function base_package() {
     clear
     print_install "Menginstall Packet Yang Dibutuhkan"
+    
+    # [FIX] Mencegah prompt interaktif (cloud.cfg / restart service)
+    export DEBIAN_FRONTEND=noninteractive
+    
     apt install zip pwgen openssl netcat socat cron bash-completion figlet -y
-    apt update -y && apt upgrade -y && apt dist-upgrade -y
+    
+    # [FIX] Update dengan opsi default "KEEP OLD CONFIG" agar tidak stuck
+    apt update -y
+    apt upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+    apt dist-upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+    
     apt install chrony ntpdate sudo ruby -y
     systemctl enable chronyd && systemctl restart chronyd
     systemctl enable chrony && systemctl restart chrony
@@ -238,7 +252,6 @@ function pasang_domain() {
     if [[ -n "$AUTO_DOMAIN" ]]; then
         echo -e "${green} [BOT MODE] Using Auto Domain: $AUTO_DOMAIN ${NC}"
         host1="$AUTO_DOMAIN"
-        # Perbaikan baris 88: Memastikan IP tertulis ke config kyt
         echo "IP=$IP" > /var/lib/kyt/ipvps.conf
         echo "$host1" > /etc/xray/domain && echo "$host1" > /root/domain
         if [[ -n "$AUTO_NS" ]]; then
@@ -270,10 +283,11 @@ function pasang_ssl() {
     print_success "SSL Certificate"
 }
 
+# [FIX] FUNGSI INSTALL XRAY DIPERBAIKI (SYNTAX ERROR DIHILANGKAN)
 function install_xray() {
     clear
     print_install "Core Xray Latest Version"
-     mkdir -p /etc/xray
+    mkdir -p /etc/xray
     mkdir -p /root/.info
     domainSock_dir="/run/xray";! [ -d $domainSock_dir ] && mkdir $domainSock_dir
     chown www-data.www-data $domainSock_dir
@@ -287,11 +301,12 @@ function install_xray() {
     wget -O /etc/systemd/system/runn.service "${REPO}files/runn.service" >/dev/null 2>&1
     
     domain=$(cat /etc/xray/domain)
-    cp /etc/xray/city /root/.info/.city
-    cp /etc/xray/isp /root/.info/.isp
-    # PERBAIKAN: Gunakan simbol '>' dan tambahkan timeout agar tidak Unknown City
+    
+    # [FIX] Ambil data City & ISP dengan Timeout (Agar tidak Unknown)
     curl -s --connect-timeout 5 ipinfo.io/city > /etc/xray/city
     curl -s --connect-timeout 5 ipinfo.io/org | cut -d " " -f 2-10 > /etc/xray/isp
+    cp /etc/xray/city /root/.info/.city
+    cp /etc/xray/isp /root/.info/.isp
     
     # Settings UP Nginx & Haproxy
     wget -O /etc/haproxy/haproxy.cfg "${REPO}config/haproxy.cfg" >/dev/null 2>&1
@@ -304,8 +319,10 @@ function install_xray() {
     cat /etc/xray/xray.crt /etc/xray/xray.key | tee /etc/haproxy/hap.pem
     chmod 644 /etc/haproxy/hap.pem
 
-    # Set Permission & Create Service
+    # Set Permission & Create Service Runn
     chmod +x /etc/systemd/system/runn.service
+
+    # [FIX] BUAT SERVICE XRAY DI DALAM FUNGSI YANG SAMA (TIDAK TERPISAH)
     cat >/etc/systemd/system/xray.service <<EOF
 [Unit]
 Description=Xray Service
@@ -322,6 +339,7 @@ LimitNOFILE=1000000
 [Install]
 WantedBy=multi-user.target
 EOF
+    
     print_success "Konfigurasi Xray"
 }
 
@@ -377,7 +395,6 @@ function ssh_slow(){
     print_install "Memasang Modul SlowDNS Server"
     wget -q -O /tmp/slowdns.sh "${REPO}slowdns/slowdns.sh"
     chmod +x /tmp/slowdns.sh
-    # Perbaikan: Inject NS dari Bot agar tidak stuck meminta input manual
     export AUTO_NS="${AUTO_NS}"
     bash /tmp/slowdns.sh
     rm -f /tmp/slowdns.sh
@@ -422,7 +439,6 @@ function ins_vnstat(){
     systemctl enable vnstat && /etc/init.d/vnstat restart
     print_success "Vnstat"
 }
-# ... (Sambungan dari Halaman 3)
 
 function ins_openvpn(){
     clear
@@ -483,11 +499,9 @@ function ins_fail2ban(){
 function ins_epro(){
     clear
     print_install "Menginstall ePro WebSocket Proxy"
-    # Download Binari
     wget -O /usr/bin/ws "${REPO}files/ws" >/dev/null 2>&1
-    # Download Konfigurasi (BAGIAN YANG HILANG)
+    # [FIX] Pastikan config tun.conf terdownload dengan benar
     wget -O /usr/bin/tun.conf "${REPO}config/tun.conf" >/dev/null 2>&1
-    # Download Service
     wget -O /etc/systemd/system/ws.service "${REPO}files/ws.service" >/dev/null 2>&1
     
     chmod +x /usr/bin/ws
@@ -535,6 +549,10 @@ function enable_services(){
 # MAIN EXECUTION (FULL PROGRESS BAR)
 # =========================================
 function instal(){
+    # [FIX] DISABLE IPV6 SEMENTARA AGAR TIDAK MACET DI 5%
+    sysctl -w net.ipv6.conf.all.disable_ipv6=1
+    sysctl -w net.ipv6.conf.default.disable_ipv6=1
+    
     clear
     update_progress 5 "PROSES PENGECEKAN IP ADDRESS"
     first_setup
@@ -552,7 +570,7 @@ function instal(){
     install_xray
     update_progress 55 "MEMASANG PASSWORD SSH"
     ssh
-    password_default
+    # password_default # [HAPUS: Fungsi ini tidak ada, penyebab error]
     update_progress 65 "MEMASANG SERVICE LIMIT IP & QUOTA"
     udp_mini
     update_progress 75 "MENGINSTALL MODUL SLOWDNS SERVER"
@@ -570,7 +588,7 @@ function instal(){
 # JALANKAN PROSES
 instal
 
-# LOG PENUTUP & CLEANUP (BARIS 1000+)
+# LOG PENUTUP & CLEANUP
 echo ""
 history -c
 rm -rf /root/menu /root/*.zip /root/*.sh /root/LICENSE /root/README.md /root/domain
@@ -579,19 +597,19 @@ sudo hostnamectl set-hostname $username
 
 echo "------------------------------------------------------------" | tee -a log-install.txt
 echo "   >>> Service & Port" | tee -a log-install.txt
-echo "   - OpenSSH                     : 22, 53, 2222, 2269" | tee -a log-install.txt
-echo "   - SSH Websocket               : 80" | tee -a log-install.txt
-echo "   - SSH SSL Websocket           : 443" | tee -a log-install.txt
-echo "   - Stunnel5                    : 222, 777" | tee -a log-install.txt
-echo "   - Dropbear                    : 109, 143" | tee -a log-install.txt
-echo "   - Badvpn                      : 7100-7300" | tee -a log-install.txt
-echo "   - Nginx                       : 81" | tee -a log-install.txt
-echo "   - XRAY Vmess/Vless/Trojan     : 443, 80" | tee -a log-install.txt
-echo "   - SLOWDNS                     : 53" | tee -a log-install.txt
+echo "   - OpenSSH                         : 22, 53, 2222, 2269" | tee -a log-install.txt
+echo "   - SSH Websocket                   : 80" | tee -a log-install.txt
+echo "   - SSH SSL Websocket               : 443" | tee -a log-install.txt
+echo "   - Stunnel5                        : 222, 777" | tee -a log-install.txt
+echo "   - Dropbear                        : 109, 143" | tee -a log-install.txt
+echo "   - Badvpn                          : 7100-7300" | tee -a log-install.txt
+echo "   - Nginx                           : 81" | tee -a log-install.txt
+echo "   - XRAY Vmess/Vless/Trojan         : 443, 80" | tee -a log-install.txt
+echo "   - SLOWDNS                         : 53" | tee -a log-install.txt
 echo "" | tee -a log-install.txt
 echo "   >>> Server Information & Other Features" | tee -a log-install.txt
-echo "   - Timezone                    : Asia/Jakarta (GMT +7)" | tee -a log-install.txt
-echo "   - Dflate, IPtables, Reboot    : [ON]" | tee -a log-install.txt
+echo "   - Timezone                        : Asia/Jakarta (GMT +7)" | tee -a log-install.txt
+echo "   - Dflate, IPtables, Reboot        : [ON]" | tee -a log-install.txt
 echo "   - Auto Delete Expired, Admin Control, Restore Data" | tee -a log-install.txt
 echo "------------------------------------------------------------" | tee -a log-install.txt
 echo "===============-[ SCRIPT BY HOKAGE LEGEND ]-===============" | tee -a log-install.txt
