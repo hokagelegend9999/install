@@ -28,6 +28,7 @@ function update_progress() {
     text+="<code>[$bar] $percent%</code>%0A"
     text+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
     text+="💻 <b>Mohon Tunggu, Jangan Close Bot...</b>"
+    text+="Tinggal Ngopi..Aja..%0A"
 
     # Kirim Request Edit Pesan ke Telegram
     curl -s -X POST "https://api.telegram.org/bot${token}/editMessageText" \
