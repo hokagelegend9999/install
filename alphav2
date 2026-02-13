@@ -383,26 +383,26 @@ ISP=$(cat /root/.isp)
 IP=$(curl -sS ipv4.icanhazip.com)
 CITY=$(cat /root/.city)
 TIMEZONE=$(printf '%(%H:%M:%S)T')
-Exp-Sc=$(curl $izinsc | grep $MYIP | awk '{print $4}')
-User=$(cat /usr/bin/user)
-    TEXT="
-<code>────────────────────</code>
-<b>⚡𝗡𝗢𝗧𝗜𝗙 𝗜𝗡𝗦𝗧𝗔𝗟𝗟 𝗦𝗖𝗥𝗜𝗣𝗧⚡</b>
-<code>────────────────────</code>
-<code>USER NAME     :</code><code>$User</code>
-<code>ISP           :</code><code>$ISP</code>
-<code>CITY          :</code><code>$CITY</code>
-<code>IP            :</code><code>$IP</code>
-<code>DATE          :</code><code>$DATE</code>
-<code>Time          :</code><code>$TIMEZONE</code>
-<code>Expired       :</code><code>$Exp-Sc</code>
-<code>─────────────────────────────</code>
-<b> SINGGAH VPN STORE SCRIPT  </b>
-<code>─────────────────────────────</code>
-<i>Automatic Notifications From Github</i>
-"'&reply_markup={"inline_keyboard":[[{"text":"ᴏʀᴅᴇʀ","url":"t.me/ScriptVps_Alpha_bot"}]]}' 
+Exp_Sc=$(curl -s $izinsc | grep $MYIP | awk '{print $3}')
+User_Sc=$(curl -s $izinsc | grep $MYIP | awk '{print $2}')
 
-    curl -s --max-time $TIMES -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
+TEXT="<b>⚡ NOTIF INSTALL SCRIPT ⚡</b>%0A"
+    TEXT+="<code>─────────────────────────────</code>%0A"
+    TEXT+="👤 <b>USER NAME :</b> <code>$User</code>%0A"
+    TEXT+="🏢 <b>ISP       :</b> <code>$ISP</code>%0A"
+    TEXT+="📍 <b>CITY      :</b> <code>$CITY</code>%0A"
+    TEXT+="🌐 <b>IP VPS     :</b> <code>$IP</code>%0A"
+    TEXT+="📅 <b>DATE       :</b> <code>$DATE</code>%0A"
+    TEXT+="⏰ <b>TIME       :</b> <code>$TIMEZONE</code>%0A"
+    TEXT+="⌛ <b>EXPIRED    :</b> <code>$Exp-Sc</code>%0A"
+    TEXT+="<code>─────────────────────────────</code>%0A"
+    TEXT+="👑 <b>SINGGAH VPN STORE SCRIPT</b>%0A"
+    TEXT+="<i>Automatic Notification System</i>"
+
+    # Tombol Gabungan
+    local BUTTONS='{"inline_keyboard": [[{"text": "🛒 ORDER", "url": "https://t.me/ScriptVps_Alpha_bot"}], [{"text": "🔙 KEMBALI KE MENU", "callback_data": "menu"}]]}'
+
+    curl -s -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html&reply_markup=$BUTTONS" $URL >/dev/null
 }
 clear
 # Pasang SSL
