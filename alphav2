@@ -1002,41 +1002,60 @@ print_install "Enable Service"
     print_success "Enable Service"
     clear
 }
+function downgrade_xray() {
+    local TARGET_VERSION="v25.1.30"
+    local TARGET_URL="https://github.com/XTLS/Xray-core/releases/download/${TARGET_VERSION}/Xray-linux-64.zip"
+    local XRAY_PATH="/usr/local/bin/xray"
+    
+    echo -e "${BLUE}=====================================================${NC}"
+    echo -e "${BLUE}      DOWNGRADING XRAY TO ${TARGET_VERSION}          ${NC}"
+    echo -e "${BLUE}=====================================================${NC}"
+    
+    # Stop Service
+    systemctl stop xray
+    
+    # Backup Binary Terbaru
+    if [ -f "$XRAY_PATH" ]; then
+        mv $XRAY_PATH /usr/local/bin/xray.latest
+    fi
+    
+    # Download Target Version
+    mkdir -p /tmp/xray_downgrade
+    cd /tmp/xray_downgrade
+    wget -q $TARGET_URL
+    
+    if [ $? -eq 0 ]; then
+        unzip -o Xray-linux-64.zip > /dev/null 2>&1
+        mv xray $XRAY_PATH
+        chmod +x $XRAY_PATH
+        echo -e "${GREEN}Xray berhasil di-downgrade ke ${TARGET_VERSION}${NC}"
+    else
+        echo -e "${RED}Gagal download versi downgrade! Mengembalikan versi terbaru...${NC}"
+        mv /usr/local/bin/xray.latest $XRAY_PATH
+    fi
+    
+    rm -rf /tmp/xray_downgrade
+    systemctl restart xray
+    cd /root
+}
 
-# Fingsi Install Script
+## MENJALANKAN FUNGSI INSTALLASI
 function instal(){
     clear
-    # 0% - Mulai
     update_progress 2 "MEMULAI PROSES INSTALASI"
-    
-    # 5% - Pengecekan Awal
-    update_progress 5 "MEMERIKSA KONEKSI & IP"
     first_setup
-    
-    # 10% - Webserver
-    update_progress 10 "INSTALL NGINX WEBSERVER"
     nginx_install
-    
-    # 20% - Paket Dasar
-    update_progress 20 "UPDATE SISTEM & DEPENDENSI"
     base_package
-    
-    # 30% - Domain & SSL
-    update_progress 25 "MEMBUAT FOLDER XRAY"
     make_folder_xray
-    update_progress 30 "KONFIGURASI DOMAIN"
     pasang_domain
-    # password_default (Pastikan fungsi ini ada di script Anda)
-    
-    update_progress 45 "INSTALL SSL CERTIFICATE (MOHON TUNGGU)"
+    update_progress 45 "INSTALL SSL CERTIFICATE"
     pasang_ssl
     
-    # 60% - Core Services
-    update_progress 60 "INSTALL XRAY CORE & CONFIG"
+    # Bagian ini akan menginstall Xray versi TERBARU dulu
+    update_progress 60 "INSTALL XRAY CORE TERBARU"
     install_xray
     
-    # 70% - Networking & Security
-    update_progress 70 "SETUP SSH, LIMIT IP & SLOWDNS"
+    update_progress 70 "SETUP SSH & NETWORKING"
     ssh
     udp_mini
     ssh_slow
@@ -1045,24 +1064,26 @@ function instal(){
     ins_dropbear
     ins_vnstat
     
-    # 85% - VPN Protocols & Backup
-    update_progress 85 "SETUP VPN PROTOCOLS & BACKUP"
+    update_progress 85 "SETUP VPN PROTOCOLS"
     ins_openvpn
     ins_backup
     ins_swab
     ins_Fail2ban
     
-    # 95% - Finalizing
-    update_progress 95 "SETUP WEBSOCKET & MENU SYSTEM"
+    update_progress 95 "FINALIZING & DOWNGRADING"
     ins_epro
     noobzvpn
     ins_restart
     menu
     profile
     enable_services
-    restart_system # Notifikasi login ke admin juga terpicu di sini
+    restart_system
     
-    # 100% - Selesai
+    # --- PROSES DOWNGRADE DISISIPKAN DI SINI ---
+    echo -e "${YELLOW}Melakukan Downgrade Xray ke v25.1.30 untuk stabilitas...${NC}"
+    downgrade_xray
+    # ------------------------------------------
+
     update_progress 100 "INSTALASI SELESAI! REBOOTING..."
     sleep 2
     send_final_report
