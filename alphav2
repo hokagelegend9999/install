@@ -49,8 +49,8 @@ function send_final_report() {
     TEXT_FINAL+="📅 <b>Waktu    :</b> <code>$(date)</code>%0A"
     TEXT_FINAL+="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬%0A"
     TEXT_FINAL+="Server sedang melakukan <b>Reboot</b> otomatis.%0A"
-    TEXT_FINAL+="Silakan tunggu 1-2 menit lalu login kembali.%0A%0A"
-    TEXT_FINAL+="🚀 <i>Singgah VPN Autoscript</i>"
+    TEXT_FINAL+="Silakan tunggu Persiapan  script Lalu Login .%0A%0A"
+    TEXT_FINAL+="🚀 <i>Hokage Legend Auto script</i>"
 
     local KEYBOARD='{"inline_keyboard": [[{"text": "🔙 KEMBALI KE MENU", "callback_data": "menu"}]]}'
 
@@ -97,8 +97,8 @@ echo -e "${YELLOW}----------------------------------------------------------${NC
 echo -e " WELCOME TO SINGGAH VPN STORE ${YELLOW}(${NC}${green}Stable Edition${NC}${YELLOW})${NC}"
 echo -e " PROSES PENGECEKAN IP ADDRESS ANDA !!"
 echo -e "${purple}----------------------------------------------------------${NC}"
-echo -e " ›AUTHOR : ${green}SINGGAH VPN STORE® ${NC}${YELLOW}(${NC}${green}V 3.5${NC}${YELLOW})${NC}"
-echo -e " ›TEAM 🅥🅝: SINGGAH VPN STORE ${YELLOW}(${NC} 2025 ${YELLOW})${NC}"
+echo -e " ›✅AUTHOR : ${green}HOKAGE LEGEND SCRIPT® ${NC}${YELLOW}(${NC}${green}V 3.5${NC}${YELLOW})${NC}"
+echo -e " ›✅DEVELOPER: HOKAGE LEGEND STORE ${YELLOW}(${NC} 2025 ${YELLOW})${NC}"
 echo -e "${YELLOW}----------------------------------------------------------${NC}"
 echo ""
 sleep 2
@@ -148,7 +148,6 @@ MYIP=$(curl -sS ipv4.icanhazip.com)
 clear
 apt install ruby -y
 apt install chrony
-apt install chronyd
 gem install lolcat
 apt install wondershaper -y
 clear
@@ -377,7 +376,7 @@ sts="${Error}"
 fi
 TIMES="10"
 CHATID="1469244768"
-KEY="7911375235:AAERwknqnWLoqWFbsSuUfqCQGMy93UQHUTk"
+KEY="8401742770:AAFs81f2dBEfAIgr9uq2i_96ryclSG95ue8"
 URL="https://api.telegram.org/bot$KEY/sendMessage"
 ISP=$(cat /root/.isp)
 IP=$(curl -sS ipv4.icanhazip.com)
@@ -400,7 +399,7 @@ User=$(cat /usr/bin/user)
 <b> SINGGAH VPN STORE SCRIPT  </b>
 <code>─────────────────────────────</code>
 <i>Automatic Notifications From Github</i>
-"'&reply_markup={"inline_keyboard":[[{"text":"ᴏʀᴅᴇʀ","url":"t.me/SinggahPremium"}]]}' 
+"'&reply_markup={"inline_keyboard":[[{"text":"ᴏʀᴅᴇʀ","url":"t.me/ScriptVps_Alpha_bot"}]]}' 
 
     curl -s --max-time $TIMES -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
 }
@@ -474,7 +473,7 @@ rm -rf /etc/vmess/.vmess.db
 #Instal Xray
 function install_xray() {
 clear
-    print_install "Core Xray 1.8.1 Latest Version"
+    print_install "Core Xray Latest Version"
     domainSock_dir="/run/xray";! [ -d $domainSock_dir ] && mkdir  $domainSock_dir
     chown www-data.www-data $domainSock_dir
     
@@ -836,16 +835,6 @@ apt autoclean -y >/dev/null 2>&1
 apt autoremove -y >/dev/null 2>&1
 print_success "ePro WebSocket Proxy"
 }
-function noobzvpn(){
-clear
-wget "${REPO}/noobzvpns.zip"
-unzip noobzvpns.zip
-cd noobzvpns
-bash install.sh
-rm noobzvpns.zip
-systemctl restart noobzvpns
-print_success "NOOBZVPN"
-}
 
 function ins_restart(){
 clear
@@ -1072,7 +1061,6 @@ function instal(){
     
     update_progress 95 "FINALIZING & DOWNGRADING"
     ins_epro
-    noobzvpn
     ins_restart
     menu
     profile
@@ -1141,11 +1129,11 @@ echo ""
 echo ""
 echo "------------------------------------------------------------"
 echo ""
-echo "===============-[ SCRIPT BY SINGGAH VPN ]-==============="
+echo "===============-[ SCRIPT BY HOKAGE LEGEND ]-==============="
 echo -e ""
 echo ""
 echo "" | tee -a log-install.txt
-echo "Semuanya Berjalan Ok...Terimakasih Telah menggunakan Script Singgah!!"
+echo "Semuanya Berjalan Ok...Terimakasih Telah menggunakan Script Hokage Legend!!"
 sleep 1
 echo -ne "[ ${yell}COMPLETED${NC} ] PENGINSTALAN SCRIPT SELESAI? "
 reboot
