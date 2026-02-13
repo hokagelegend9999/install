@@ -770,14 +770,9 @@ gotop_latest="$(curl -s https://api.github.com/repos/xxxserxxx/gotop/releases | 
 print_success "Swap 1 G"
 }
 
-function ins_Fail2ban(){
+function ins_banner(){
 clear
-print_install "Menginstall Fail2ban"
-#apt -y install fail2ban > /dev/null 2>&1
-#sudo systemctl enable --now fail2ban
-#/etc/init.d/fail2ban restart
-#/etc/init.d/fail2ban status
-
+print_install "Menginstall banner"
 # Instal DDOS Flate
 if [ -d '/usr/local/ddos' ]; then
 	echo; echo; echo "Please un-install the previous version first"
@@ -793,7 +788,7 @@ sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/kyt.txt"@g' /etc/default/drop
 
 # Ganti Banner
 wget -O /etc/kyt.txt https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/files/issue.net
-print_success "Fail2ban"
+print_success "Banner Terpasang"
 }
 
 function ins_epro(){
@@ -844,7 +839,6 @@ print_install "Restarting  All Packet"
 /etc/init.d/openvpn restart
 /etc/init.d/ssh restart
 /etc/init.d/dropbear restart
-/etc/init.d/fail2ban restart
 /etc/init.d/vnstat restart
 systemctl restart haproxy
 /etc/init.d/cron restart
@@ -859,7 +853,6 @@ systemctl restart haproxy
     systemctl enable --now haproxy
     systemctl enable --now netfilter-persistent
     systemctl enable --now ws
-    systemctl enable --now fail2ban
 history -c
 echo "unset HISTFILE" >> /etc/profile
 
@@ -1058,7 +1051,7 @@ function instal(){
     ins_openvpn
     ins_backup
     ins_swab
-    ins_Fail2ban
+    ins_banner
     
     update_progress 95 "FINALIZING & DOWNGRADING"
     ins_epro
@@ -1112,7 +1105,6 @@ echo "   - SLOWDNS                 : 53"  | tee -a log-install.txt
 echo ""  | tee -a log-install.txt
 echo "   >>> Server Information & Other Features"  | tee -a log-install.txt
 echo "   - Timezone                : Asia/Jakarta (GMT +7)"  | tee -a log-install.txt
-echo "   - Fail2Ban                : [ON]"  | tee -a log-install.txt
 echo "   - Dflate                  : [ON]"  | tee -a log-install.txt
 echo "   - IPtables                : [ON]"  | tee -a log-install.txt
 echo "   - Auto-Reboot             : [ON]"  | tee -a log-install.txt
