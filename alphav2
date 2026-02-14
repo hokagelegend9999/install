@@ -1062,6 +1062,7 @@ function instal(){
     ssh_slow
     ins_udpSSH
     ins_SSHD
+    update_progress 75 "INSTALL SSHD * DROPBEAR"
     ins_dropbear
     ins_vnstat
     
