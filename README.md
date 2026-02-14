@@ -69,7 +69,7 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 
 ## UPDATE SCRIPT
 ```
-wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/update_alphav2 && chmod +x update_alphav2 && ./update_alphav2
+wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/update.sh && chmod +x update.sh && ./update.sh
 ```
 
 ### SUPPORT OS LINUX
