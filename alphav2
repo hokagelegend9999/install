@@ -1046,6 +1046,7 @@ function instal(){
     first_setup
     nginx_install
     base_package
+    update_progress 15 "CEK PROSES INSTAL DENGAN KETIK DI VPS : tail -f /root/install_ssh.log"
     make_folder_xray
     pasang_domain
     update_progress 45 "INSTALL SSL CERTIFICATE"
