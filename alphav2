@@ -95,7 +95,7 @@ date_list=$(date +"%Y-%m-%d" -d "$data_server")
 
   # // Banner
 echo -e "${YELLOW}----------------------------------------------------------${NC}"
-echo -e " WELCOME TO SINGGAH VPN STORE ${YELLOW}(${NC}${green}Stable Edition${NC}${YELLOW})${NC}"
+echo -e " WELCOME TO HOKAGE LEGEND SCRIPT PREMIUM ${YELLOW}(${NC}${green}Stable Edition${NC}${YELLOW})${NC}"
 echo -e " PROSES PENGECEKAN IP ADDRESS ANDA !!"
 echo -e "${purple}----------------------------------------------------------${NC}"
 echo -e " ›✅AUTHOR : ${green}HOKAGE LEGEND SCRIPT® ${NC}${YELLOW}(${NC}${green}V 3.5${NC}${YELLOW})${NC}"
@@ -388,15 +388,15 @@ User_Sc=$(curl -s $izinsc | grep $MYIP | awk '{print $2}')
 
 TEXT="<b>⚡ NOTIF INSTALL SCRIPT ⚡</b>%0A"
     TEXT+="<code>─────────────────────────────</code>%0A"
-    TEXT+="👤 <b>USER NAME :</b> <code>$User</code>%0A"
-    TEXT+="🏢 <b>ISP       :</b> <code>$ISP</code>%0A"
-    TEXT+="📍 <b>CITY      :</b> <code>$CITY</code>%0A"
-    TEXT+="🌐 <b>IP VPS     :</b> <code>$IP</code>%0A"
-    TEXT+="📅 <b>DATE       :</b> <code>$DATE</code>%0A"
-    TEXT+="⏰ <b>TIME       :</b> <code>$TIMEZONE</code>%0A"
-    TEXT+="⌛ <b>EXPIRED    :</b> <code>$Exp-Sc</code>%0A"
+    TEXT+="👤 <b>USER NAME :</b> <code>$User_Sc</code>%0A"
+    TEXT+="🏢 <b>ISP        :</b> <code>$ISP</code>%0A"
+    TEXT+="📍 <b>CITY       :</b> <code>$CITY</code>%0A"
+    TEXT+="🌐 <b>IP VPS      :</b> <code>$IP</code>%0A"
+    TEXT+="📅 <b>DATE        :</b> <code>$DATE</code>%0A"
+    TEXT+="⏰ <b>TIME        :</b> <code>$TIMEZONE</code>%0A"
+    TEXT+="⌛ <b>EXPIRED    :</b> <code>$Exp_Sc</code>%0A"
     TEXT+="<code>─────────────────────────────</code>%0A"
-    TEXT+="👑 <b>SINGGAH VPN STORE SCRIPT</b>%0A"
+    TEXT+="👑 <b>HOKAGE LEGEND SCRIPT PREMIUM</b>%0A"
     TEXT+="<i>Automatic Notification System</i>"
 
     # Tombol Gabungan
