@@ -717,12 +717,15 @@ print_success "Vnstat"
 }
 
 function ins_openvpn(){
-clear
-print_install "Menginstall OpenVPN"
-#OpenVPN
-wget https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/openvpn  chmod +x openvpn && ./openvpn
-/etc/init.d/openvpn restart
-print_success "OpenVPN"
+    clear
+    print_install "Menginstall OpenVPN"
+    
+    # OpenVPN (Sudah diperbaiki pemisahan barisnya)
+    wget -O openvpn https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/config/openvpn
+    chmod +x openvpn && ./openvpn
+    
+    /etc/init.d/openvpn restart
+    print_success "OpenVPN"
 }
 
 function ins_backup(){
