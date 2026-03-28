@@ -236,7 +236,8 @@ function first_setup(){
     apt install -y --no-install-recommends software-properties-common curl gnupg2 lsb-release ca-certificates
 
     # Install HAProxy dari repo default OS (paling aman)
-    apt install -y haproxy
+    apt update -y
+    DEBIAN_FRONTEND=noninteractive apt install -y -o Dpkg::Options::="--force-confold" haproxy
 
     # Pastikan haproxy benar-benar terinstall
     if ! command -v haproxy >/dev/null 2>&1; then
