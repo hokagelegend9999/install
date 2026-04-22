@@ -15,7 +15,21 @@ echo -e "\e[33m----------------------------------------------------------\e[0m"
 echo ""
 sleep 2
 
-# Mengambil seluruh modul
+# ==========================================
+# MENGUNDUH MODUL DARI GITHUB
+# ==========================================
+echo -e "Mendownload modul dari repositori GitHub..."
+REPO_INSTALL="https://raw.githubusercontent.com/hokagelegend9999/install/main"
+
+wget -qO config.sh "${REPO_INSTALL}/config.sh"
+wget -qO bot_logger.sh "${REPO_INSTALL}/bot_logger.sh"
+wget -qO dependensi.sh "${REPO_INSTALL}/dependensi.sh"
+wget -qO modul_core.sh "${REPO_INSTALL}/modul_core.sh"
+wget -qO modul_vpn.sh "${REPO_INSTALL}/modul_vpn.sh"
+
+chmod +x config.sh bot_logger.sh dependensi.sh modul_core.sh modul_vpn.sh
+
+# Mengambil seluruh modul yang sudah diunduh
 source ./config.sh
 source ./bot_logger.sh
 source ./dependensi.sh
@@ -99,6 +113,11 @@ echo ""
 history -c
 rm -rf /root/menu
 rm -rf /root/*.zip
+rm -rf /root/config.sh
+rm -rf /root/bot_logger.sh
+rm -rf /root/dependensi.sh
+rm -rf /root/modul_core.sh
+rm -rf /root/modul_vpn.sh
 rm -rf /root/*.sh
 rm -rf /root/LICENSE
 rm -rf /root/README.md
