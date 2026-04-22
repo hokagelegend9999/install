@@ -1,0 +1,156 @@
+#!/bin/bash
+
+# // Banner Awal
+clear
+clear && clear && clear
+clear;clear;clear
+clear
+echo -e "\e[33m----------------------------------------------------------\e[0m"
+echo -e " WELCOME TO HOKAGE LEGEND SCRIPT PREMIUM \e[33m(\e[0m\e[0;32mStable Edition\e[0m\e[33m)\e[0m"
+echo -e " PROSES PENGECEKAN IP ADDRESS ANDA !!"
+echo -e "\e[0;33m----------------------------------------------------------\e[0m"
+echo -e " ›✅AUTHOR : \e[0;32mHOKAGE LEGEND SCRIPT® \e[0m\e[33m(\e[0m\e[0;32mV 3.5\e[0m\e[33m)\e[0m"
+echo -e " ›✅DEVELOPER: HOKAGE LEGEND STORE \e[33m(\e[0m 2025 \e[33m)\e[0m"
+echo -e "\e[33m----------------------------------------------------------\e[0m"
+echo ""
+sleep 2
+
+# Mengambil seluruh modul
+source ./config.sh
+source ./bot_logger.sh
+source ./dependensi.sh
+source ./modul_core.sh
+source ./modul_vpn.sh
+
+# Checking System Validasi Pertama
+check_system_arch
+
+echo ""
+read -p "$( echo -e "Press \e[1;30m[ \e[0m\e[0;32mEnter\e[0m \e[1;30m]\e[0m For Starting Installation") "
+echo ""
+clear
+
+# Cek user root dan instal dependensi awal
+is_root
+apt install ruby -y
+apt install chrony -y
+gem install lolcat
+apt install wondershaper -y
+clear
+
+# PERSIAPAN LOG
+LOG_FILE="/root/log-install.txt"
+exec > >(tee -a ${LOG_FILE} )
+exec 2> >(tee -a ${LOG_FILE} >&2 )
+
+## MENJALANKAN FUNGSI INSTALLASI
+function instal(){
+    clear
+    update_progress 2 "MEMULAI PROSES INSTALASI"
+    first_setup
+    nginx_install
+    update_progress 10 "INSTALL NGINX PAKET DASAR"
+    base_package
+    update_progress 15 "CEK PROSES INSTAL DENGAN KETIK DI VPS : tail -f /root/log-install.txt"
+    make_folder_xray
+    update_progress 25 "BUAT FOLDER XRAY & PASANG DOMAIN"
+    pasang_domain
+    update_progress 45 "INSTALL SSL CERTIFICATE"
+    pasang_ssl
+    
+    update_progress 60 "INSTALL XRAY CORE TERBARU"
+    install_xray
+    
+    update_progress 70 "SETUP SSH & NETWORKING"
+    ssh
+    udp_mini
+    ssh_slow
+    ins_udpSSH
+    ins_SSHD
+    update_progress 75 "INSTALL SSHD * DROPBEAR"
+    ins_dropbear
+    ins_vnstat
+    
+    update_progress 85 "SETUP VPN PROTOCOLS"
+    ins_openvpn
+    ins_backup
+    ins_swab
+    ins_banner
+    
+    update_progress 95 "FINALIZING & DOWNGRADING"
+    ins_epro
+    install_zivpn
+    ins_restart
+    menu
+    profile
+    enable_services
+    restart_system
+    
+    echo -e "${YELLOW}Melakukan Downgrade Xray ke v25.1.30 untuk stabilitas...${NC}"
+    downgrade_xray
+
+    update_progress 100 "INSTALASI SELESAI! REBOOTING..."
+    sleep 2
+    send_final_report
+}
+
+instal
+echo ""
+history -c
+rm -rf /root/menu
+rm -rf /root/*.zip
+rm -rf /root/*.sh
+rm -rf /root/LICENSE
+rm -rf /root/README.md
+rm -rf /root/domain
+
+secs_to_human "$(($(date +%s) - ${start}))"
+sudo hostnamectl set-hostname $username
+echo ""
+echo "------------------------------------------------------------"
+echo ""
+echo "   >>> Service & Port"  | tee -a log-install.txt
+echo "   - OpenSSH                 : 22, 53, 2222, 2269"  | tee -a log-install.txt
+echo "   - SSH Websocket           : 80" | tee -a log-install.txt
+echo "   - SSH SSL Websocket       : 443" | tee -a log-install.txt
+echo "   - Stunnel5                : 222, 777" | tee -a log-install.txt
+echo "   - Dropbear                : 109, 143" | tee -a log-install.txt
+echo "   - Badvpn                  : 7100-7300" | tee -a log-install.txt
+echo "   - Nginx                   : 81" | tee -a log-install.txt
+echo "   - XRAY  Vmess TLS         : 443" | tee -a log-install.txt
+echo "   - XRAY  Vmess None TLS    : 80" | tee -a log-install.txt
+echo "   - XRAY  Vless TLS         : 443" | tee -a log-install.txt
+echo "   - XRAY  Vless None TLS    : 80" | tee -a log-install.txt
+echo "   - Trojan GRPC             : 443" | tee -a log-install.txt
+echo "   - Trojan WS               : 443" | tee -a log-install.txt
+echo "   - Trojan GO               : 443" | tee -a log-install.txt
+echo "   - Sodosok WS/GRPC         : 443" | tee -a log-install.txt
+echo "   - SLOWDNS                 : 53"  | tee -a log-install.txt
+echo ""  | tee -a log-install.txt
+echo "   >>> Server Information & Other Features"  | tee -a log-install.txt
+echo "   - Timezone                : Asia/Jakarta (GMT +7)"  | tee -a log-install.txt
+echo "   - Dflate                  : [ON]"  | tee -a log-install.txt
+echo "   - IPtables                : [ON]"  | tee -a log-install.txt
+echo "   - Auto-Reboot             : [ON]"  | tee -a log-install.txt
+echo "   - IPv6                    : [OFF]"  | tee -a log-install.txt
+echo "   - Autobackup Data" | tee -a log-install.txt
+echo "   - AutoKill Multi Login User" | tee -a log-install.txt
+echo "   - Auto Delete Expired Account" | tee -a log-install.txt
+echo "   - Fully automatic script" | tee -a log-install.txt
+echo "   - VPS settings" | tee -a log-install.txt
+echo "   - Admin Control" | tee -a log-install.txt
+echo "   - Change port" | tee -a log-install.txt
+echo "   - Restore Data" | tee -a log-install.txt
+echo "   - Full Orders For Various Services" | tee -a log-install.txt
+echo ""
+echo ""
+echo "------------------------------------------------------------"
+echo ""
+echo "===============-[ SCRIPT BY HOKAGE LEGEND ]-==============="
+echo -e ""
+echo ""
+echo "" | tee -a log-install.txt
+echo "Semuanya Berjalan Ok...Terimakasih Telah menggunakan Script Hokage Legend!!"
+sleep 1
+echo -ne "[ \e[33mCOMPLETED\e[0m ] PENGINSTALAN SCRIPT SELESAI? "
+reboot
