@@ -3,7 +3,7 @@
 # SISIPAN 1: KONFIGURASI BOT & FUNGSI LAPORAN
 # ==================================================
 # Ganti dengan Token Bot Anda
-BOT_TOKEN="8401742770:AAFs81f2dBEfAIgr9uq2i_96ryclSG95ue8"
+BOT_TOKEN="8401742770:AAEB8YzmotU-YD_QbQUbiaMn6PCy4XXHors"
 
 # Fungsi Update Progress Bar (Realtime)
 function update_progress() {
