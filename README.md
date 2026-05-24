@@ -61,10 +61,16 @@ rm install_ulang_virtual
 Tampilan utama dari aplikasi ini dirancang agar mudah digunakan dan responsif, memberikan pengalaman pengguna yang maksimal.
 
 
-### INSTALL SCRIPT 
+### INSTALL SCRIPT FULL
 
 ```
 apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/alphav2 && chmod +x alphav2 && ./alphav2
+```
+
+
+### INSTALL SCRIPT SIMPLE
+```
+apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubusercontent.com/hokagelegend9999/install/refs/heads/main/alpha-simple && chmod +x alpha-simple && ./alpha-simple
 ```
 
 ## UPDATE SCRIPT
