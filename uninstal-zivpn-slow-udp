@@ -1,0 +1,92 @@
+#!/bin/bash
+# ==================================================
+# UNINSTALLER ZIVPN, UDP CUSTOM & SLOWDNS
+# DEVELOPER: HOKAGE LEGEND STORE
+# ==================================================
+
+# Warna untuk output
+GREEN="\e[92;1m"
+RED="\033[31m"
+YELLOW="\033[33m"
+NC='\e[0m'
+
+echo -e "${YELLOW}======================================================${NC}"
+echo -e "${GREEN}  MEMULAI PROSES UNINSTALL ZIVPN, UDP CUSTOM & SLOWDNS  ${NC}"
+echo -e "${YELLOW}======================================================${NC}"
+echo ""
+
+if [ "${EUID}" -ne 0 ]; then
+    echo -e "${RED}[ERROR] You need to run this script as root${NC}"
+    exit 1
+fi
+
+# ==========================================
+# 1. MENGHENTIKAN DAN MENGHAPUS SERVICE
+# ==========================================
+echo -e "${YELLOW}[1/4] Menghentikan dan mendisable services...${NC}"
+
+# Stop ZiVPN Service
+systemctl stop zivpn.service >/dev/null 2>&1
+systemctl disable zivpn.service >/dev/null 2>&1
+
+# Stop UDP Custom Service (jika ada)
+systemctl stop udp-custom.service >/dev/null 2>&1
+systemctl disable udp-custom.service >/dev/null 2>&1
+
+# Stop SlowDNS Services (nama umum pada script Auto Installer)
+systemctl stop client-sldns.service >/dev/null 2>&1
+systemctl disable client-sldns.service >/dev/null 2>&1
+systemctl stop server-sldns.service >/dev/null 2>&1
+systemctl disable server-sldns.service >/dev/null 2>&1
+
+# ==========================================
+# 2. MENGHAPUS FILE DAN DIREKTORI
+# ==========================================
+echo -e "${YELLOW}[2/4] Menghapus file core dan konfigurasi...${NC}"
+
+# Hapus ZiVPN
+rm -rf /etc/zivpn
+rm -f /usr/local/bin/zivpn
+rm -f /usr/local/bin/zivpn-sync
+rm -f /etc/systemd/system/zivpn.service
+
+# Hapus UDP Custom
+rm -rf /etc/udp
+rm -rf /usr/local/udp-custom
+rm -f /etc/systemd/system/udp-custom.service
+
+# Hapus SlowDNS
+rm -rf /etc/slowdns
+rm -f /etc/systemd/system/client-sldns.service
+rm -f /etc/systemd/system/server-sldns.service
+rm -f /tmp/nameserver
+
+# ==========================================
+# 3. MEMBERSIHKAN ATURAN IPTABLES (ZIVPN)
+# ==========================================
+echo -e "${YELLOW}[3/4] Membersihkan routing iptables...${NC}"
+
+# Menghapus rule iptables yang dibuat oleh ZiVPN
+iptables -t nat -D PREROUTING -p udp --dport 6000:19999 -j REDIRECT --to-ports 5667 >/dev/null 2>&1
+iptables -D INPUT -p udp --dport 5667 -j ACCEPT >/dev/null 2>&1
+iptables -D INPUT -p udp -m multiport --dports 6000:19999 -j ACCEPT >/dev/null 2>&1
+
+# Menyimpan ulang iptables agar permanen
+iptables-save > /etc/iptables.up.rules
+if command -v netfilter-persistent >/dev/null 2>&1; then
+    netfilter-persistent save >/dev/null 2>&1
+    netfilter-persistent reload >/dev/null 2>&1
+fi
+
+# ==========================================
+# 4. RESTART DAEMON & CLEANUP
+# ==========================================
+echo -e "${YELLOW}[4/4] Reload system daemon...${NC}"
+systemctl daemon-reload
+
+echo ""
+echo -e "${GREEN}======================================================${NC}"
+echo -e "${GREEN}  UNINSTALL SELESAI!  ${NC}"
+echo -e "${GREEN}  ZiVPN UDP, UDP Custom, dan SlowDNS telah dihapus.   ${NC}"
+echo -e "${GREEN}  Service lain (Xray, SSH, OpenVPN) tetap aman.       ${NC}"
+echo -e "${GREEN}======================================================${NC}"
