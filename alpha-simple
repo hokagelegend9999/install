@@ -1017,6 +1017,83 @@ function downgrade_xray() {
     cd /root
 }
 
+function ins_autokill(){
+    clear
+    print_install "Memasang Auto-Kill Expired User"
+    
+    # 1. Membuat script autokill di /usr/local/sbin
+    cat > /usr/local/sbin/autokill <<'EOF'
+#!/bin/bash
+hariini=$(date +%Y-%m-%d)
+now_s=$(date -d "$hariini" +%s)
+
+# HAPUS TROJAN (Tanda #!)
+grep -E "^#! " "/etc/xray/config.json" | cut -d ' ' -f 2-3 | sort | uniq | while read -r user exp; do
+    exp_s=$(date -d "$exp" +%s 2>/dev/null)
+    if [[ -n "$exp_s" ]] && [[ "$now_s" -gt "$exp_s" ]]; then
+        sed -i "/^#! $user $exp/,/^},{/d" /etc/xray/config.json
+        rm -rf /etc/trojan/$user
+        rm -rf /etc/kyt/limit/trojan/ip/$user
+    fi
+done
+
+# HAPUS VMESS (Tanda ###)
+grep -E "^### " "/etc/xray/config.json" | cut -d ' ' -f 2-3 | sort | uniq | while read -r user exp; do
+    exp_s=$(date -d "$exp" +%s 2>/dev/null)
+    if [[ -n "$exp_s" ]] && [[ "$now_s" -gt "$exp_s" ]]; then
+        sed -i "/^### $user $exp/,/^},{/d" /etc/xray/config.json
+        rm -rf /etc/vmess/$user
+        rm -rf /etc/kyt/limit/vmess/ip/$user
+    fi
+done
+
+# HAPUS VLESS (Tanda #&)
+grep -E "^#& " "/etc/xray/config.json" | cut -d ' ' -f 2-3 | sort | uniq | while read -r user exp; do
+    exp_s=$(date -d "$exp" +%s 2>/dev/null)
+    if [[ -n "$exp_s" ]] && [[ "$now_s" -gt "$exp_s" ]]; then
+        sed -i "/^#& $user $exp/,/^},{/d" /etc/xray/config.json
+        rm -rf /etc/vless/$user
+        rm -rf /etc/kyt/limit/vless/ip/$user
+    fi
+done
+
+# HAPUS SHADOWSOCKS (Tanda #ss#)
+grep -E "^#ss# " "/etc/xray/config.json" | cut -d ' ' -f 2-3 | sort | uniq | while read -r user exp; do
+    exp_s=$(date -d "$exp" +%s 2>/dev/null)
+    if [[ -n "$exp_s" ]] && [[ "$now_s" -gt "$exp_s" ]]; then
+        sed -i "/^#ss# $user $exp/,/^},{/d" /etc/xray/config.json
+        rm -rf /etc/shadowsocks/$user
+        rm -rf /etc/kyt/limit/shadowsocks/ip/$user
+    fi
+done
+
+# HAPUS SSH
+for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
+    exp=$(chage -l $user | grep "Account expires" | awk -F": " '{print $2}')
+    if [[ "$exp" != "never" ]]; then
+        exp_s=$(date -d "$exp" +%s 2>/dev/null)
+        if [[ -n "$exp_s" ]] && [[ "$now_s" -gt "$exp_s" ]]; then
+            userdel -f "$user"
+            rm -rf /etc/kyt/limit/ssh/ip/$user
+        fi
+    fi
+done
+
+systemctl restart xray
+EOF
+    
+    # 2. Memberikan izin eksekusi
+    chmod +x /usr/local/sbin/autokill
+    
+    # 3. Mendaftarkan ke Cronjob VPS (Jalan setiap jam 00:00)
+    cat >/etc/cron.d/autokill <<-END
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+0 0 * * * root /usr/local/sbin/autokill >/dev/null 2>&1
+END
+
+    print_success "Auto-Kill Expired User Terpasang"
+}
 ## MENJALANKAN FUNGSI INSTALLASI
 function instal(){
     clear
@@ -1050,6 +1127,7 @@ function instal(){
     ins_backup
     ins_swab
     ins_banner
+    ins_autokill
     
     update_progress 95 "FINALIZING & DOWNGRADING"
     ins_epro
