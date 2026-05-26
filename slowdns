@@ -1,0 +1,125 @@
+#!/bin/bash
+# ==================================================
+#  INSTALLER ADD-ON SLOWDNS - HOKAGE LEGEND STORE
+#  (Khusus untuk VPS yang sudah ada script utama)
+# ==================================================
+
+# Warna & Format
+Green="\e[92;1m"
+RED="\033[31m"
+YELLOW="\033[33m"
+NC='\e[0m'
+
+clear
+echo -e "${YELLOW}======================================================${NC}"
+echo -e "${Green}      INSTALLER ADD-ON SLOWDNS HOKAGE LEGEND          ${NC}"
+echo -e "${YELLOW}======================================================${NC}"
+echo ""
+
+# 1. Validasi Root
+if [ "${EUID}" -ne 0 ]; then
+    echo -e "${RED}Error: Installer ini harus dijalankan sebagai root!${NC}"
+    exit 1
+fi
+
+# 2. Mendapatkan Domain & IP VPS
+IP=$(curl -sS icanhazip.com)
+if [ ! -f /etc/xray/domain ]; then
+    echo -e "${RED}[!] File /etc/xray/domain tidak ditemukan.${NC}"
+    echo -e "${YELLOW}Sepertinya script utama belum terpasang atau file terhapus.${NC}"
+    read -p "Masukkan Domain Utama Anda secara manual: " domain_utama
+    if [ -z "$domain_utama" ]; then
+        echo -e "${RED}Instalasi dibatalkan karena domain kosong.${NC}"
+        exit 1
+    fi
+    domain=$domain_utama
+else
+    domain=$(cat /etc/xray/domain)
+    echo -e "[*] Domain Utama terdeteksi: ${Green}$domain${NC}"
+fi
+
+echo -e "[*] Memulai instalasi SlowDNS..."
+sleep 2
+
+# 3. Membersihkan Proses Lama (Jika Ada)
+echo "[*] Membersihkan service dan port jika pernah terpasang..."
+systemctl stop slowdns &>/dev/null
+systemctl disable slowdns &>/dev/null
+killall dnstt-server &>/dev/null
+killall slowdns &>/dev/null
+
+# 4. Menyiapkan Direktori & Binary
+echo "[*] Menyiapkan direktori kerja /etc/slowdns..."
+rm -rf /etc/slowdns
+mkdir -p /etc/slowdns
+cd /etc/slowdns
+
+echo "[*] Mengunduh core binary DNSTT Server dari GitHub..."
+wget -qO dnstt-server "https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/main/slowdns/dnstt-server"
+if [ ! -f "dnstt-server" ]; then
+    echo -e "${RED}[!] Gagal mengunduh file binary. Cek koneksi atau link GitHub.${NC}"
+    exit 1
+fi
+chmod +x dnstt-server
+
+# 5. Generate Key Enkripsi Chacha20
+echo "[*] Men-generate kunci enkripsi publik dan privat..."
+./dnstt-server -gen-key -privkey-file /etc/slowdns/server.key -pubkey-file /etc/slowdns/server.pub
+
+# 6. Mendaftarkan NS Domain Otomatis
+echo "[*] Menulis data NS Domain ke sistem..."
+echo "slowdns.${domain}" > /root/nsdomain
+cp -f /etc/slowdns/server.pub /root/server.pub
+
+# 7. Mengatur Ulang Gerbang Firewall (Iptables)
+echo "[*] Membuka gembok Port 53 UDP di IPTables..."
+apt-get update -y >/dev/null 2>&1
+apt-get install iptables iptables-persistent netfilter-persistent -y >/dev/null 2>&1
+
+iptables -t nat -I PREROUTING -p udp --dport 53 -j ACCEPT
+iptables -I INPUT -p udp --dport 53 -j ACCEPT
+netfilter-persistent save &>/dev/null
+netfilter-persistent reload &>/dev/null
+
+# 8. Membuat Service Systemd
+echo "[*] Membuat auto-start service Systemd..."
+cat << EOF > /etc/systemd/system/slowdns.service
+[Unit]
+Description=SlowDNS Server HOKAGE ADDON
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/slowdns
+ExecStart=/etc/slowdns/dnstt-server -udp 0.0.0.0:53 -privkey-file /etc/slowdns/server.key slowdns.${domain} 127.0.0.1:22
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 9. Mengaktifkan Service
+echo "[*] Menghidupkan layanan SlowDNS..."
+systemctl daemon-reload
+systemctl enable slowdns &>/dev/null
+systemctl start slowdns
+systemctl restart slowdns
+
+# 10. Mengambil Output Data
+pub_key=$(cat /etc/slowdns/server.pub)
+
+clear
+echo -e "${YELLOW}======================================================${NC}"
+echo -e "${Green}      ADD-ON SLOWDNS BERHASIL DI-INSTAL!              ${NC}"
+echo -e "${YELLOW}======================================================${NC}"
+echo -e " NS Domain  : ${Green}slowdns.${domain}${NC}"
+echo -e " Public Key : ${Green}${pub_key}${NC}"
+echo -e " IP Server  : ${Green}${IP}${NC}"
+echo -e " Port Listen: ${Green}53 (UDP)${NC}"
+echo -e "${YELLOW}======================================================${NC}"
+echo -e " Service SlowDNS sudah berjalan di latar belakang."
+echo -e " Akun SSH yang sudah ada di VPS ini otomatis bisa"
+echo -e " langsung digunakan untuk login via SlowDNS."
+echo -e "======================================================"
