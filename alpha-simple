@@ -891,7 +891,6 @@ curl -sS "ipinfo.io/org?token=7a814b6263b02c" > /root/.info/.isp
 		SHELL=/bin/sh
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 		2 0 * * * root /usr/local/sbin/xp
-		2 0 * * * root /usr/local/sbin/menu
 	END
 	
     cat >/etc/cron.d/logclean <<-END
