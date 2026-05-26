@@ -913,7 +913,7 @@ curl -sS "ipinfo.io/org?token=7a814b6263b02c" > /root/.info/.isp
 		*/2 * * * * root /usr/local/sbin/limit-ip-ssh >/dev/null 2>&1
 	END
 
-    # 3. Cronjob untuk Limit Quota (Setiap 5 Menit) - DITAMBAHKAN
+    # 3. Cronjob untuk Limit Quota (Setiap 5 Menit)
     cat >/etc/cron.d/limit_quota <<-END
 		SHELL=/bin/sh
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
@@ -934,10 +934,34 @@ curl -sS "ipinfo.io/org?token=7a814b6263b02c" > /root/.info/.isp
 
     echo "*/1 * * * * root echo -n > /var/log/nginx/access.log" >/etc/cron.d/log.nginx
     echo "*/1 * * * * root echo -n > /var/log/xray/access.log" >>/etc/cron.d/log.xray
+
+    # ==========================================
+    # PEMBUATAN SCRIPT WATCHDOG WARP & CRONJOB
+    # ==========================================
+    cat > /usr/local/sbin/warp-watchdog << 'EOF'
+#!/bin/bash
+status=$(warp-cli status | grep -i "Status update:")
+if [[ "$status" == *"Disconnected"* ]]; then
+    warp-cli connect > /dev/null 2>&1
+    echo "$(date): WARP terputus, melakukan koneksi ulang otomatis." >> /var/log/warp-watchdog.log
+fi
+EOF
+    chmod +x /usr/local/sbin/warp-watchdog
+
+    cat >/etc/cron.d/warp-keepalive <<-END
+		SHELL=/bin/sh
+		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+		*/5 * * * * root /usr/local/sbin/warp-watchdog >/dev/null 2>&1
+	END
+    # ==========================================
+
+    # Restart layanan cron setelah semua file jadwal terbuat
     service cron restart
+    
     cat >/home/daily_reboot <<-END
 		5
 	END
+
 curl -sS "ipinfo.io/city?token=7a814b6263b02c" > /root/.info/.city
 cat >/etc/systemd/system/rc-local.service <<EOF
 [Unit]
