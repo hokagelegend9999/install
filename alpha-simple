@@ -633,6 +633,81 @@ systemctl start udp-mini-3
 print_success "Limit IP Service"
 }
 
+function ins_udpSSH(){
+clear
+print_install "Menginstall Udp-custom"
+wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/udp-custom/udp-custom.sh
+chmod +x udp-custom.sh 
+bash udp-custom.sh
+rm -fr udp-custom.sh
+print_success "Udp-custom"
+}
+
+# ==================================================
+# SISIPAN 2: FUNGSI INSTALL SLOWDNS
+# ==================================================
+function ins_slowdns(){
+    clear
+    print_install "Menginstall SlowDNS Server"
+    
+    # 1. Bersihkan sisa-sisa proses lama agar tidak bentrok
+    systemctl stop slowdns &>/dev/null
+    systemctl disable slowdns &>/dev/null
+    killall dnstt-server &>/dev/null
+    killall slowdns &>/dev/null
+
+    # 2. Siapkan direktori kerja secara bersih
+    rm -rf /etc/slowdns
+    mkdir -p /etc/slowdns
+    cd /etc/slowdns
+
+    # 3. Download Binary Server dari GitHub
+    wget -qO dnstt-server "https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/main/slowdns/dnstt-server"
+    chmod +x dnstt-server
+
+    # 4. Generate Pasangan Kunci Enkripsi Baru di Sisi Server
+    ./dnstt-server -gen-key -privkey-file /etc/slowdns/server.key -pubkey-file /etc/slowdns/server.pub
+
+    # 5. Sinkronisasi Data Domain dan Kunci Publik ke Sistem Pendukung
+    # Kita buat format NS otomatis dari domain utama
+    domain=$(cat /etc/xray/domain)
+    echo "slowdns.${domain}" > /root/nsdomain
+    cp -f /etc/slowdns/server.pub /root/server.pub
+
+    # 6. Mengonfigurasi Firewall Lapis Dalam (Iptables & NAT)
+    iptables -t nat -I PREROUTING -p udp --dport 53 -j ACCEPT
+    iptables -I INPUT -p udp --dport 53 -j ACCEPT
+    netfilter-persistent save &>/dev/null
+    netfilter-persistent reload &>/dev/null
+
+    # 7. Membuat File Service Auto-Start Permanen (Systemd)
+    cat << EOF > /etc/systemd/system/slowdns.service
+[Unit]
+Description=SlowDNS Server HOKAGE FIX
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/slowdns
+ExecStart=/etc/slowdns/dnstt-server -udp 0.0.0.0:53 -privkey-file /etc/slowdns/server.key slowdns.${domain} 127.0.0.1:22
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # 8. Menghidupkan Mesin Utama SlowDNS
+    systemctl daemon-reload
+    systemctl enable slowdns
+    systemctl start slowdns
+
+    print_success "SlowDNS Server"
+    cd
+}
+# ==================================================
+
 clear
 function ins_SSHD(){
 clear
@@ -658,15 +733,6 @@ chmod +x /etc/default/dropbear
 print_success "Dropbear"
 }
 
-function ins_udpSSH(){
-clear
-print_install "Menginstall Udp-custom"
-wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/udp-custom/udp-custom.sh
-chmod +x udp-custom.sh 
-bash udp-custom.sh
-rm -fr udp-custom.sh
-print_success "Udp-custom"
-}
 clear
 function ins_vnstat(){
 clear
@@ -980,12 +1046,16 @@ EOF
 
 echo "/bin/false" >>/etc/shells
 echo "/usr/sbin/nologin" >>/etc/shells
+
+# ==================================================
+# PERBAIKAN RC.LOCAL (Mencegah Hijack Port 53)
+# ==================================================
 cat >/etc/rc.local <<EOF
 #!/bin/sh -e
 # rc.local
 # By default this script does nothing.
-iptables -I INPUT -p udp --dport 5300 -j ACCEPT
-iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300
+iptables -I INPUT -p udp --dport 53 -j ACCEPT
+iptables -t nat -I PREROUTING -p udp --dport 53 -j ACCEPT
 systemctl restart netfilter-persistent
 exit 0
 EOF
@@ -1024,7 +1094,7 @@ function downgrade_xray() {
     local XRAY_PATH="/usr/local/bin/xray"
     
     echo -e "${BLUE}=====================================================${NC}"
-    echo -e "${BLUE}      DOWNGRADING XRAY TO ${TARGET_VERSION}          ${NC}"
+    echo -e "${BLUE}     DOWNGRADING XRAY TO ${TARGET_VERSION}           ${NC}"
     echo -e "${BLUE}=====================================================${NC}"
     
     # Stop Service
@@ -1155,6 +1225,10 @@ function instal(){
     ssh
     udp_mini
     ins_udpSSH
+    
+    update_progress 72 "INSTALL SLOWDNS SERVER"
+    ins_slowdns
+    
     ins_SSHD
     update_progress 75 "INSTALL SSHD * DROPBEAR"
     ins_dropbear
