@@ -77,7 +77,10 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 ```
 wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/uninstal-zivpn-slow-udp && chmod +x uninstal-zivpn-slow-udp && ./uninstal-zivpn-slow-udp
 ```
-
+### INSTALL SLOWDNS
+```
+wget -qO pasang.sh https://github.com/hokagelegend9999/install/raw/refs/heads/main/slowdns && chmod +x pasang.sh && ./pasang.sh
+```
 ## UPDATE SCRIPT
 ```
 wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/update.sh && chmod +x update.sh && ./update.sh
