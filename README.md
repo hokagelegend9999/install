@@ -68,17 +68,17 @@ apt install -y && apt update -y && apt upgrade -y && wget -q https://raw.githubu
 ```
 
 
+### INSTALL SCRIPT FIX ALPHA V4
+
+```
+apt update -y && apt install screen -y && screen -S install_alpha bash -c "apt upgrade -y && wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/alpha_v4 && chmod +x alpha_v4 && ./alpha_v4"
+```
 ### INSTALL SCRIPT FULL jika terputus 
 
 ```
 screen -r install_alpha
 ```
 
-### INSTALL SCRIPT FIX ALPHA V4
-
-```
-apt update -y && apt install screen -y && screen -S install_alpha bash -c "apt upgrade -y && wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/alpha_v4 && chmod +x alpha_v4 && ./alpha_v4"
-```
 
 ### INSTALL SCRIPT SIMPLE
 ```
