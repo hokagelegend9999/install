@@ -797,10 +797,11 @@ clear
 print_install "Menginstall banner"
 # Instal DDOS Flate
 if [ -d '/usr/local/ddos' ]; then
-	echo; echo; echo "Please un-install the previous version first"
-	exit 0
+	echo "Folder DDOS Flate lama ditemukan. Membersihkan dan menimpa dengan yang baru..."
+	rm -rf /usr/local/ddos
+	mkdir -p /usr/local/ddos
 else
-	mkdir /usr/local/ddos
+	mkdir -p /usr/local/ddos
 fi
 
 clear
