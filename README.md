@@ -98,6 +98,10 @@ wget -qO pasang.sh https://github.com/hokagelegend9999/install/raw/refs/heads/ma
 wget -q https://raw.githubusercontent.com/hokagelegend9999/alpha.v2/refs/heads/main/update.sh && chmod +x update.sh && ./update.sh
 ```
 
+## PEMBERSIH BLOTWARE UBUNTU 20
+```
+wget -q https://github.com/hokagelegend9999/install/raw/refs/heads/main/clean && chmod +x clean && ./clean
+```
 ### SUPPORT OS LINUX
 - UBUNTU 20.04.05
 - DEBIAN 10
