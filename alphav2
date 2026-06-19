@@ -202,6 +202,7 @@ print_install "Membuat direktori xray"
     mkdir -p /var/log/xray
     chown www-data.www-data /var/log/xray
     chmod +x /var/log/xray
+    chmod -R 777 /var/log/xray
     touch /var/log/xray/access.log
     touch /var/log/xray/error.log
     mkdir -p /var/lib/kyt >/dev/null 2>&1
