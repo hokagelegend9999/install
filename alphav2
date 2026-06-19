@@ -338,27 +338,36 @@ clear
 #GANTI PASSWORD DEFAULT
 restart_system(){
 #IZIN SCRIPT
-curl "ipinfo.io/org?token=7a814b6263b02c" > /root/.isp 
-curl "ipinfo.io/city?token=7a814b6263b02c" > /root/.city
+curl -sS "ipinfo.io/org?token=7a814b6263b02c" > /root/.isp 
+curl -sS "ipinfo.io/city?token=7a814b6263b02c" > /root/.city
 MYIP=$(curl -sS ipv4.icanhazip.com)
 echo -e "\e[32mloading...\e[0m" 
 clear
-izinsc="https://github.com/hokagelegend9999/ijin/raw/refs/heads/main/alpha"
+
+# PERBAIKAN 1: Gunakan link Raw GitHub secara langsung
+izinsc="https://raw.githubusercontent.com/hokagelegend9999/ijin/main/alpha"
+
 # USERNAME
 rm -f /usr/bin/user
-username=$(curl $izinsc | grep $MYIP | awk '{print $2}')
+# PERBAIKAN 2: Tambahkan argumen -sL pada curl agar lebih optimal menarik teks
+username=$(curl -sL $izinsc | grep $MYIP | awk '{print $2}')
 echo "$username" >/usr/bin/user
-expx=$(curl $izinsc | grep $MYIP | awk '{print $3}')
+expx=$(curl -sL $izinsc | grep $MYIP | awk '{print $3}')
 echo "$expx" >/usr/bin/e
+
 # DETAIL ORDER
 username=$(cat /usr/bin/user)
-oid=$(cat /usr/bin/ver)
+# oid=$(cat /usr/bin/ver)
 exp=$(cat /usr/bin/e)
 clear
+
 # CERTIFICATE STATUS
-d1=$(date -d "$valid" +%s)
-d2=$(date -d "$today" +%s)
-certifacate=$(((d1 - d2) / 86400))
+# (d1 dan d2 di sini menggunakan variabel valid dan today yang belum terdefinisi di versi sebelumnya, 
+#  namun kita biarkan sesuai script asli)
+# d1=$(date -d "$valid" +%s)
+# d2=$(date -d "$today" +%s)
+# certifacate=$(((d1 - d2) / 86400))
+
 # VPS Information
 DATE=$(date +'%Y-%m-%d')
 datediff() {
@@ -366,18 +375,21 @@ datediff() {
     d2=$(date -d "$2" +%s)
     echo -e "$COLOR1 $NC Expiry In   : $(( (d1 - d2) / 86400 )) Days"
 }
-mai="datediff "$Exp" "$DATE""
+# mai="datediff "$Exp" "$DATE""
 
 # Status Expired Active
 Info="(${green}Active${NC})"
 Error="(${RED}ExpiRED${NC})"
 today=`date -d "0 days" +"%Y-%m-%d"`
-Exp1=$(curl $izinsc | grep $MYIP | awk '{print $4}')
+
+# PERBAIKAN 3: Ubah $4 menjadi $3 karena kolom ke-3 adalah tanggal expired
+Exp1=$(curl -sL $izinsc | grep $MYIP | awk '{print $3}')
 if [[ $today < $Exp1 ]]; then
 sts="${Info}"
 else
 sts="${Error}"
 fi
+
 TIMES="10"
 CHATID="1469244768"
 KEY="8401742770:AAEB8YzmotU-YD_QbQUbiaMn6PCy4XXHors"
@@ -386,8 +398,12 @@ ISP=$(cat /root/.isp)
 IP=$(curl -sS ipv4.icanhazip.com)
 CITY=$(cat /root/.city)
 TIMEZONE=$(printf '%(%H:%M:%S)T')
-Exp_Sc=$(curl -s $izinsc | grep $MYIP | awk '{print $3}')
-User_Sc=$(curl -s $izinsc | grep $MYIP | awk '{print $2}')
+
+# PERBAIKAN 4: Tambahkan fallback nilai "Unregistered" jika IP tidak ditemukan di GitHub
+Exp_Sc=$(curl -sL $izinsc | grep $MYIP | awk '{print $3}')
+User_Sc=$(curl -sL $izinsc | grep $MYIP | awk '{print $2}')
+if [[ -z "$User_Sc" ]]; then User_Sc="Unregistered IP"; fi
+if [[ -z "$Exp_Sc" ]]; then Exp_Sc="Unregistered IP"; fi
 
 TEXT="<b>⚡ NOTIF INSTALL SCRIPT ⚡</b>%0A"
     TEXT+="<code>─────────────────────────────</code>%0A"
