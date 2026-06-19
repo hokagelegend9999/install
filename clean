@@ -1,0 +1,58 @@
+#!/bin/bash
+# ==========================================
+# SCRIPT SAPU BERSIH VPS TUNNELING (ULTIMATE)
+# Fokus: Membasmi Malware, Docker, OS Bloatware, & Layanan Sampah
+# ==========================================
+
+echo -e "\n[+] Memulai Operasi Pembersihan VPS Ultimate..."
+
+# 1. Bantai Malware / Penambang Siluman
+echo -e "[+] Membersihkan Malware (netcache)..."
+killall -9 netcache 2>/dev/null
+rm -f /usr/local/bin/netcache /etc/systemd/system/netcache.service
+
+# 2. Hapus Layanan Lawas (UDP-Custom & ZIVPN)
+# Catatan: Beri tanda pagar (#) di awal baris jika Anda masih butuh layanan ini di VPS tertentu
+echo -e "[+] Menghapus UDP-Custom & ZIVPN lawas..."
+systemctl stop udp-custom zivpn 2>/dev/null
+systemctl disable udp-custom zivpn 2>/dev/null
+killall -9 zivpn zivpn-sync 2>/dev/null
+rm -rf /etc/udp /etc/zivpn /usr/local/bin/zivpn* /etc/systemd/system/udp-custom.service /etc/systemd/system/zivpn.service
+iptables -t nat -D PREROUTING -p udp --dport 6000:19999 -j REDIRECT --to-ports 5667 2>/dev/null
+iptables -D INPUT -p udp --dport 5667 -j ACCEPT 2>/dev/null
+iptables -D INPUT -p udp -m multiport --dports 6000:19999 -j ACCEPT 2>/dev/null
+netfilter-persistent save >/dev/null 2>&1
+
+# 3. Ratakan Ekosistem Docker
+echo -e "[+] Menghapus Ekosistem Docker..."
+systemctl stop docker containerd 2>/dev/null
+systemctl disable docker containerd 2>/dev/null
+killall -9 dockerd containerd 2>/dev/null
+apt-get remove --purge docker-ce docker-ce-cli docker.io docker-buildx-plugin docker-compose-plugin containerd containerd.io wmdocker -y 2>/dev/null
+
+# 4. Basmi Bloatware Ubuntu (PackageKit, fwupd, snapd, multipathd, unattended-upgrades)
+echo -e "[+] Menghapus Bloatware Bawaan OS Ubuntu..."
+systemctl stop packagekit fwupd snapd multipathd unattended-upgrades 2>/dev/null
+systemctl disable packagekit fwupd snapd multipathd unattended-upgrades 2>/dev/null
+systemctl mask packagekit fwupd snapd multipathd unattended-upgrades 2>/dev/null
+killall -9 packagekitd fwupd snapd multipathd 2>/dev/null
+apt-get remove --purge packagekit fwupd snapd multipath-tools unattended-upgrades -y 2>/dev/null
+rm -rf /snap /var/snap /var/lib/snapd /var/cache/snapd
+
+# 5. Bersihkan Layanan Server Tidak Berguna (Printer, Modem, Avahi, PHP)
+# Catatan: Hapus kata 'php*' di bawah ini jika Anda menginstal Web Panel / OCS Panel
+echo -e "[+] Menghapus Layanan Printer, Modem, Pencari Jaringan, dan PHP..."
+systemctl stop cups cups-browsed ModemManager avahi-daemon php*-fpm 2>/dev/null
+systemctl disable cups cups-browsed ModemManager avahi-daemon php*-fpm 2>/dev/null
+killall -9 cups-browsed ModemManager avahi-daemon php-fpm 2>/dev/null
+apt-get remove --purge cups cups-browsed modemmanager avahi-daemon php* -y 2>/dev/null
+
+# 6. Finalisasi & Kuras RAM
+echo -e "[+] Membersihkan sisa dependensi dan menguras RAM..."
+systemctl daemon-reload
+apt-get autoremove --purge -y 2>/dev/null
+apt-get clean 2>/dev/null
+rm -f /var/spool/cron/crontabs/tmp.* 2>/dev/null
+sync; echo 3 > /proc/sys/vm/drop_caches
+
+echo -e "\n[√] PEMBERSIHAN SELESAI! VPS Anda sekarang 100% Ringan & Fokus untuk Tunneling."
