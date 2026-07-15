@@ -580,7 +580,6 @@ EOF
     cat >/etc/cron.d/xp_all <<-END
 		SHELL=/bin/sh
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-		2 0 * * * root /usr/local/sbin/xp
 		2 0 * * * root /usr/local/sbin/menu
 	END
     cat >/etc/cron.d/logclean <<-END
@@ -594,15 +593,10 @@ EOF
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 		0 0 * * * root echo "Successfully Reboot On $(date +\%m-\%d-\%Y) Time $(date +\%T)" >> /root/log-reboot.txt && /sbin/reboot
 	END
-    cat >/etc/cron.d/limit_ip <<-END
-		SHELL=/bin/sh
-		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-		*/2 * * * * root /usr/local/sbin/limit-ip
-	END
     cat >/etc/cron.d/lim-ip-ssh <<-END
 		SHELL=/bin/sh
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-		*/1 * * * * root /usr/local/sbin/limit-ip-ssh
+		*/1 * * * * root /usr/local/sbin/limit-ip-ssh >/dev/null 2>&1
 	END
     echo "*/1 * * * * root echo -n > /var/log/nginx/access.log" >/etc/cron.d/log.nginx
     echo "*/1 * * * * root echo -n > /var/log/xray/access.log" >>/etc/cron.d/log.xray
