@@ -589,10 +589,10 @@ EOF
 		*/20 * * * * root /usr/local/sbin/clearlog
 	END
     chmod 644 /root/.profile
-    cat >/etc/cron.d/daily_reboot <<-END
+    cat >/etc/cron.d/daily_reboot <<-'END'
 		SHELL=/bin/sh
 		PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-		0 5 * * * root /sbin/reboot
+		0 0 * * * root echo "Successfully Reboot On $(date +\%m-\%d-\%Y) Time $(date +\%T)" >> /root/log-reboot.txt && /sbin/reboot
 	END
     cat >/etc/cron.d/limit_ip <<-END
 		SHELL=/bin/sh
