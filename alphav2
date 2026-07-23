@@ -446,7 +446,6 @@ function ins_vnstat(){
     cd vnstat-2.6
     ./configure --prefix=/usr --sysconfdir=/etc > /dev/null 2>&1 && make > /dev/null 2>&1 && make install > /dev/null 2>&1
     cd
-    vnstat -u -i $NET
     sed -i 's/Interface "'""eth0""'"/Interface "'""$NET""'"/g' /etc/vnstat.conf
     chown vnstat:vnstat /var/lib/vnstat -R
     systemctl enable vnstat ; /etc/init.d/vnstat restart
