@@ -628,6 +628,12 @@ function downgrade_xray() {
     systemctl stop xray
     if [ -f "$XRAY_PATH" ]; then mv $XRAY_PATH /usr/local/bin/xray.latest; fi
     mkdir -p /tmp/xray_downgrade ; cd /tmp/xray_downgrade
+    mkdir -p /var/log/xray
+	touch /var/log/xray/access.log
+	touch /var/log/xray/error.log
+	chown -R root:root /var/log/xray
+	chmod 755 /var/log/xray
+	chmod 644 /var/log/xray/*.log
     wget -q $TARGET_URL
     if [ $? -eq 0 ]; then
         unzip -q -o Xray-linux-64.zip > /dev/null 2>&1
